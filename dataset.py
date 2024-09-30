@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
@@ -128,6 +130,22 @@ class Team:
         selected_indices = [int(x.strip()) - 1 for x in selected_indices.split(',')]
         starters = [self.roster[i] for i in selected_indices]
         return starters
+
+
+def load_team_data_from_json(json_file):
+    with open(json_file, 'r') as f:
+        data = json.load(f)
+
+    team_data = []
+    for team_info in data['teams']:
+        name = team_info['name']
+        roster = team_info['roster']
+        stats = {player: pd.Series(team_info['stats'][player]) for player in roster}
+        performance = pd.Series(team_info['performance'])
+        results = pd.DataFrame(team_info['results'])
+        team_data.append((name, stats, performance, results))
+
+    return team_data
 
 
 def optimize_model_parameters_parallel(team_objects, threshold_range, test_size_range):
