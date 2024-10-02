@@ -37,7 +37,8 @@ class TeamStatsSpider(scrapy.Spider):
     def parse(self, response):
         self.logger.info(f"Status code: {response.status}")
 
-        squadra_nome = response.meta['squadra']
+        squadra_nome=response.xpath('/html/body/div[7]/div[2]/div/div/form/table[1]/tbody/tr[3]/td/font/b/text()').get()
+        squadra_code = response.meta['squadra']
         table = response.xpath('//table[@id="Statistica"]//tr')
 
         if len(table) < 4:
@@ -46,14 +47,13 @@ class TeamStatsSpider(scrapy.Spider):
 
         players = []
 
-        for row in table[2:-3]:  # Salta le prime 2 righe di intestazione e l'ultima riga
+        for row in table[2:-2]:  # Salta le prime 2 righe di intestazione e l'ultima riga
             atleta = row.xpath('td[1]/text()').get(default='').strip()  # Rimuove spazi bianchi
 
             if atleta and not atleta.isdigit() and "Legenda" not in atleta and "Totali di Squadra" not in atleta:
                 stats = [row.xpath(f'td[{i}]/text()').get(default='') for i in range(2, 25)]
                 if any(stat for stat in stats):  # Assicurati che almeno una statistica non sia null
                     player = {
-                        'squadra': squadra_nome,
                         'atleta': atleta,
                         'partite_giocate': row.xpath('td[2]/text()').get(default=''),
                         'set_giocati': row.xpath('td[3]/text()').get(default=''),
@@ -81,42 +81,38 @@ class TeamStatsSpider(scrapy.Spider):
                     }
                     players.append(player)
 
-        yield {
-            'squadra': squadra_nome,
-            'giocatori': players
+        # Gestisci l'ultima riga dei totali di squadra, se presente
+
+        totals_row = response.xpath('/html/body/div[7]/div[2]/div/div/form/table[2]/tbody/tr[12]')
+        totals = {
+            'partite_giocate': totals_row.xpath('td[1]/text()').get(default=''),
+            'set_giocati': totals_row.xpath('td[2]/text()').get(default=''),
+            'punti_totali': totals_row.xpath('td[3]/text()').get(default=''),
+            'punti_bp': totals_row.xpath('td[4]/text()').get(default=''),
+            'battuta_totale': totals_row.xpath('td[5]/text()').get(default=''),
+            'ace': totals_row.xpath('td[6]/text()').get(default=''),
+            'errori_battuta': totals_row.xpath('td[7]/text()').get(default=''),
+            'ace_per_set': totals_row.xpath('td[8]/text()').get(default=''),
+            'battuta_efficienza': totals_row.xpath('td[9]/text()').get(default=''),
+            'ricezione_totale': totals_row.xpath('td[10]/text()').get(default=''),
+            'errori_ricezione': totals_row.xpath('td[11]/text()').get(default=''),
+            'ricezione_negativa': totals_row.xpath('td[12]/text()').get(default=''),
+            'ricezione_perfetta': totals_row.xpath('td[13]/text()').get(default=''),
+            'ricezione_perfetta_perc': totals_row.xpath('td[14]/text()').get(default=''),
+            'ricezione_efficienza': totals_row.xpath('td[15]/text()').get(default=''),
+            'attacco_totale': totals_row.xpath('td[16]/text()').get(default=''),
+            'errori_attacco': totals_row.xpath('td[17]/text()').get(default=''),
+            'attacco_murati': totals_row.xpath('td[18]/text()').get(default=''),
+            'attacco_perfetti': totals_row.xpath('td[19]/text()').get(default=''),
+            'attacco_perfetti_perc': totals_row.xpath('td[20]/text()').get(default=''),
+            'attacco_efficienza': totals_row.xpath('td[21]/text()').get(default=''),
+            'muro_perfetti': totals_row.xpath('td[22]/text()').get(default=''),
+            'muro_per_set': totals_row.xpath('td[23]/text()').get(default='')
         }
 
-        # Gestisci l'ultima riga dei totali di squadra, se presente
-        if len(table) > 3:  # Assicurati che ci siano almeno 4 righe
-            totals_row = table[-4]
-            totals = {
-                'squadra': squadra_nome,
-                'partite_giocate': totals_row.xpath('td[1]/text()').get(default=''),
-                'set_giocati': totals_row.xpath('td[2]/text()').get(default=''),
-                'punti_totali': totals_row.xpath('td[3]/text()').get(default=''),
-                'punti_bp': totals_row.xpath('td[4]/text()').get(default=''),
-                'battuta_totale': totals_row.xpath('td[5]/text()').get(default=''),
-                'ace': totals_row.xpath('td[6]/text()').get(default=''),
-                'errori_battuta': totals_row.xpath('td[7]/text()').get(default=''),
-                'ace_per_set': totals_row.xpath('td[8]/text()').get(default=''),
-                'battuta_efficienza': totals_row.xpath('td[9]/text()').get(default=''),
-                'ricezione_totale': totals_row.xpath('td[10]/text()').get(default=''),
-                'errori_ricezione': totals_row.xpath('td[11]/text()').get(default=''),
-                'ricezione_negativa': totals_row.xpath('td[12]/text()').get(default=''),
-                'ricezione_perfetta': totals_row.xpath('td[13]/text()').get(default=''),
-                'ricezione_perfetta_perc': totals_row.xpath('td[14]/text()').get(default=''),
-                'ricezione_efficienza': totals_row.xpath('td[15]/text()').get(default=''),
-                'attacco_totale': totals_row.xpath('td[16]/text()').get(default=''),
-                'errori_attacco': totals_row.xpath('td[17]/text()').get(default=''),
-                'attacco_murati': totals_row.xpath('td[18]/text()').get(default=''),
-                'attacco_perfetti': totals_row.xpath('td[19]/text()').get(default=''),
-                'attacco_perfetti_perc': totals_row.xpath('td[20]/text()').get(default=''),
-                'attacco_efficienza': totals_row.xpath('td[21]/text()').get(default=''),
-                'muro_perfetti': totals_row.xpath('td[22]/text()').get(default=''),
-                'muro_per_set': totals_row.xpath('td[23]/text()').get(default='')
-            }
-
-            yield {
-                'squadra': squadra_nome,
-                'totali': totals
-            }
+        yield {
+            'squadra': squadra_nome,
+            'codice': squadra_code,
+            'players': players,
+            'totali': totals
+        }
