@@ -2,6 +2,7 @@ import json
 
 import numpy as np
 import pandas as pd
+from IPython.core.macro import coding_declaration
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
@@ -16,19 +17,75 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 logging.basicConfig(level=logging.INFO)
 
 
+class Giornata:
+
+    def __init__(self, giornata_data):
+        self.giornata = giornata_data['giornata']
+        self.set_giocati = giornata_data['set_giocati']
+        self.punti_totali = giornata_data['punti_totali']
+        self.punti_bp = giornata_data['punti_bp']
+        self.battuta_totale = giornata_data['battuta_totale']
+        self.ace = giornata_data['ace']
+        self.errori_battuta = giornata_data['errori_battuta']
+        self.ace_per_set = giornata_data['ace_per_set']
+        self.battuta_efficienza = giornata_data['battuta_efficienza']
+        self.ricezione_totale = giornata_data['ricezione_totale']
+        self.errori_ricezione = giornata_data['errori_ricezione']
+        self.ricezione_negativa = giornata_data['ricezione_negativa']
+        self.ricezione_perfetta = giornata_data['ricezione_perfetta']
+        self.ricezione_perfetta_perc = giornata_data['ricezione_perfetta_perc']
+        self.ricezione_efficienza = giornata_data['ricezione_efficienza']
+        self.attacco_totale = giornata_data['attacco_totale']
+        self.errori_attacco = giornata_data['errori_attacco']
+        self.attacco_murati = giornata_data['attacco_murati']
+        self.attacco_perfetti = giornata_data['attacco_perfetti']
+        self.attacco_perfetti_perc = giornata_data['attacco_perfetti_perc']
+        self.attacco_efficienza = giornata_data['attacco_efficienza']
+        self.muro_perfetti = giornata_data['muro_perfetti']
+        self.muro_per_set = giornata_data['muro_per_set']
+
+
+class Player:
+    giornate=[Giornata]
+
+    def __init__(self, player_data):
+        self.nome = player_data['atleta']
+        self.partite_giocate = player_data['partite_giocate']
+        self.set_giocati = player_data['set_giocati']
+        self.punti_totali = player_data['punti_totali']
+        self.punti_bp = player_data['punti_bp']
+        self.battuta_totale = player_data['battuta_totale']
+        self.ace = player_data['ace']
+        self.errori_battuta = player_data['errori_battuta']
+        self.ace_per_set = player_data['ace_per_set']
+        self.battuta_efficienza = player_data['battuta_efficienza']
+        self.ricezione_totale = player_data['ricezione_totale']
+        self.errori_ricezione = player_data['errori_ricezione']
+        self.ricezione_negativa = player_data['ricezione_negativa']
+        self.ricezione_perfetta = player_data['ricezione_perfetta']
+        self.ricezione_perfetta_perc = player_data['ricezione_perfetta_perc']
+        self.ricezione_efficienza = player_data['ricezione_efficienza']
+        self.attacco_totale = player_data['attacco_totale']
+        self.errori_attacco = player_data['errori_attacco']
+        self.attacco_murati = player_data['attacco_murati']
+        self.attacco_perfetti = player_data['attacco_perfetti']
+        self.attacco_perfetti_perc = player_data['attacco_perfetti_perc']
+        self.attacco_efficienza = player_data['attacco_efficienza']
+        self.muro_perfetti = player_data['muro_perfetti']
+        self.muro_per_set = player_data['muro_per_set']
+        self.giornate = [Giornata]
+
+
 class Team:
-    def __init__(self, name, roster, stats, performance, results):
-        self.name = name
-        self.roster = roster
-        self.stats = stats
-        self.performance = performance
-        self.results = results
-        self.starters = self.select_starters()
-        self.points = self.compute_points()
-        self.dataframe = pd.concat(self.stats.values(), axis=1)
-        self.model = None
-        self.scaler = None
-        self.features = None  # Initialization of features
+    players = []
+
+    def __init__(self, team_data):
+        self.name = team_data['squadra']
+        self.codename = team_data['codice']
+        self.players = team_data['players']
+
+        for player in self.players:
+            player = Player(player, giorate_file_path)
 
     def compute_points(self):
         points_map = {'3-0': 3, '3-1': 3, '3-2': 2, '2-3': 1, '1-3': 0, '0-3': 0}
@@ -132,22 +189,6 @@ class Team:
         return starters
 
 
-def load_team_data_from_json(json_file):
-    with open(json_file, 'r') as f:
-        data = json.load(f)
-
-    team_data = []
-    for team_info in data['teams']:
-        name = team_info['name']
-        roster = team_info['roster']
-        stats = {player: pd.Series(team_info['stats'][player]) for player in roster}
-        performance = pd.Series(team_info['performance'])
-        results = pd.DataFrame(team_info['results'])
-        team_data.append((name, stats, performance, results))
-
-    return team_data
-
-
 def optimize_model_parameters_parallel(team_objects, threshold_range, test_size_range):
     def process_combination(threshold, test_size, team):
         combined_data = pd.concat([team.dataframe for team in team_objects], axis=1)
@@ -181,6 +222,7 @@ def optimize_model_parameters_parallel(team_objects, threshold_range, test_size_
     return pd.DataFrame(results)
 
 
+'''
 def load_team_data(excel_file):
     roster = [sheet for sheet in excel_file.sheet_names if sheet not in ['Performance', 'Risultati']]
     stats = {player: excel_file.parse(sheet_name=player).drop('Giornata', axis=1).rename(
@@ -188,15 +230,34 @@ def load_team_data(excel_file):
     performance = excel_file.parse(sheet_name="Performance").drop('Giornata', axis=1)
     results = excel_file.parse(sheet_name="Risultati")
     return roster, stats, performance, results
+'''
+
+
+def load_json(teams_file_path, giornate_file_path):
+    teams = [Team]
+    giornate=[Giornata]
+    file_teams = json.load(open(teams_file_path))
+    for data in file_teams:
+        teams.append(Team(data))
+    file_giornate=json.load(open(giornate_file_path))
+    for data in file_giornate:
+        giornate.append(Giornata(data))
+
+    for giornata in giornate:
+
 
 
 if __name__ == "__main__":
+    '''
     teams = ["Valsa Group Modena", "Pallavolo Padova"]
     file_paths = ["Teams/Old/Modena_2023_2024.xlsx", "Teams/Old/Padova_2023_2024.xlsx"]
-
+    
+    
     excel_files = [pd.ExcelFile(file) for file in file_paths]
     team_data = [load_team_data(excel_file) for excel_file in excel_files]
     team_objects = [Team(team, *data) for team, data in zip(teams, team_data)]
+    '''
+    load_json('legavolley_scraper/legavolley_scraper/spiders/teams_stats.json')
 
     threshold_range = np.arange(0, 5, 0.05)
     test_size_range = np.arange(0.5, 0.9, 0.05)

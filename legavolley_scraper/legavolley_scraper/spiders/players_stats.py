@@ -40,7 +40,7 @@ class PlayersStatsSpider(scrapy.Spider):
 
         atleta_nome = response.xpath('//*[@id="divframe"]/form/div[1]/div[6]/div[2]/span/text()').get()
         atleta_code = response.meta['Atleta']
-        table = response.xpath('/html/body/div[7]/div[2]/div/div/form/table[2]/tbody/tr')
+        table = response.xpath('/html/body/div[7]/div[2]/div/div/form/table[2]')
 
         if len(table) < 4:
             self.logger.error("La tabella non contiene abbastanza righe.")
