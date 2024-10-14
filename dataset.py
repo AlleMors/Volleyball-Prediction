@@ -6,7 +6,7 @@ from IPython.core.macro import coding_declaration
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from joblib import Parallel, delayed
 import warnings
 import logging
@@ -15,8 +15,6 @@ import os
 # Configuration for warnings and logging
 warnings.simplefilter(action='ignore', category=FutureWarning)
 logging.basicConfig(level=logging.INFO)
-
-import pandas as pd
 
 
 class GiornataGiocatore:
@@ -47,9 +45,6 @@ class GiornataGiocatore:
         self.attacco_efficienza = pd.to_numeric(giornata_data['attacco_efficienza'].replace(" ", "0"), errors='coerce')
         self.muro_perfetti = pd.to_numeric(giornata_data['muro_perfetti'].replace(" ", "0"), errors='coerce')
         self.muro_per_set = pd.to_numeric(giornata_data['muro_per_set'].replace(" ", "0"), errors='coerce')
-
-
-import pandas as pd
 
 
 class Player:
@@ -89,6 +84,7 @@ class Player:
 
 class Team:
     players = []
+    totals = []
 
     def __init__(self, team_data):
         self.results = []
@@ -96,9 +92,17 @@ class Team:
         self.codename = team_data['codice']
         self.players = [Player(player) for player in team_data['players']]  # Converti in istanze Player
         self.starters = []
+        self.totals = convert_to_numeric(team_data['totali'])
+
+    def convert_to_float(value):
+        try:
+            return float(value.replace(',', '.'))
+        except ValueError:
+            return float('nan')
 
     def select_starters(self, starter_names):
         self.starters = [player for player in self.players if player.nome in starter_names]
+
         if len(self.starters) != 7:
             raise ValueError("Devi selezionare esattamente 7 titolari.")
 
@@ -108,8 +112,8 @@ class Team:
                 if result['team'] == self.name:
                     self.results.append(result['result'])
 
-    def compute_points(self):
-        with open('legavolley_scraper/legavolley_scraper/results.json', 'r') as file:
+    def compute_points(self, results_path):
+        with open(results_path, 'r') as file:
             results_data = json.load(file)
 
         points_map = {'3-0': 3, '3-1': 3, '3-2': 2, '2-3': 1, '1-3': 0, '0-3': 0}
@@ -142,45 +146,37 @@ class Team:
         return match_outcomes
 
     def train_model(self, threshold, test_size):
-        combined_data = pd.concat([pd.DataFrame(player.totals, index=[0]) for player in self.starters], axis=1)
-        combined_data['Match_Outcome'] = self.compute_match_outcome(self.results, self.name)
+        combined_data = pd.DataFrame([player.__dict__ for player in self.starters])
+        print(combined_data)
 
-        variances = combined_data.var()
-        high_variance_features = variances[variances > threshold].index
-        X_high_variance = combined_data[high_variance_features]
-        y = combined_data['Match_Outcome']
+        # Genera l'outcome della partita (vittoria/sconfitta)
+        outcome_map = {'3-0': 1, '3-1': 1, '3-2': 1, '2-3': 0, '1-3': 0, '0-3': 0}
+        y = pd.Series([outcome_map[result] for result in self.results], name='Match_Outcome')
 
-        X_train, X_test, y_train, y_test = train_test_split(X_high_variance, y, test_size=test_size, random_state=42)
+        # Prepara i dati per il training
+        X_train, X_test, y_train, y_test = train_test_split(combined_data, y, test_size=test_size, random_state=42)
+        scaler = StandardScaler()
+        X_train = pd.DataFrame(scaler.fit_transform(X_train), columns=X_train.columns)
+        X_test = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns)
 
-        # Assicura che la directory 'data' esista
-        os.makedirs('data', exist_ok=True)
-
-        # Salva i dati su file
-        X_train.to_csv(f'data/{self.name}_X_train.csv', index=False)
-        X_test.to_csv(f'data/{self.name}_X_test.csv', index=False)
-        y_train.to_csv(f'data/{self.name}_y_train.csv', index=False)
-        y_test.to_csv(f'data/{self.name}_y_test.csv', index=False)
-
-        self.scaler = StandardScaler()
-        X_train = pd.DataFrame(self.scaler.fit_transform(X_train), columns=X_train.columns)
-        X_test = pd.DataFrame(self.scaler.transform(X_test), columns=X_test.columns)
-
+        # Usa RandomForestClassifier
         self.model = RandomForestClassifier(n_estimators=100, random_state=42)
         self.model.fit(X_train, y_train)
-
         self.features = list(X_train.columns)
-        logging.info(f"Features during model training for {self.name}: {self.features}")
 
-        # Salva le importanze in un file CSV
-        output_dir = 'feature_importances'
-        os.makedirs(output_dir, exist_ok=True)  # Crea la cartella se non esiste
-        feature_importance_file = os.path.join(output_dir, f'{self.name}_feature_importances.csv')
+        # Calcola le importanze delle feature
         feature_importance_df = pd.DataFrame({
             'Feature': self.features,
             'Importance': self.model.feature_importances_
         })
-        feature_importance_df.sort_values(by='Importance', ascending=False).to_csv(feature_importance_file, index=False)
+        logging.info(f"Feature importances for {self.name}: {feature_importance_df}")
 
+        # Salva le importanze in un file CSV
+        output_dir = 'feature_importances'
+        os.makedirs(output_dir, exist_ok=True)
+        feature_importance_file = os.path.join(output_dir, f'{self.name}_feature_importances.csv')
+        feature_importance_df.sort_values(by='Importance', ascending=False).to_csv(feature_importance_file,
+                                                                                   index=False)
         logging.info(f"Feature importances saved to {feature_importance_file}")
 
 
@@ -192,8 +188,8 @@ def optimize_model_parameters_parallel(team_1, team_2, threshold_range, test_siz
         combined_data_2 = np.array([list(player.totals.values()) for player in team_2.starters if
                                     isinstance(player.totals, dict) and len(player.totals) > 0])
 
-        y_1 = team_1.compute_points()
-        y_2 = team_2.compute_points()
+        y_1 = team_1.compute_points('legavolley_scraper/legavolley_scraper/spiders/results.json')
+        y_2 = team_2.compute_points('legavolley_scraper/legavolley_scraper/spiders/results.json')
 
         print(y_1)
         print(y_2)
@@ -257,18 +253,19 @@ def optimize_model_parameters_parallel(team_1, team_2, threshold_range, test_siz
     return pd.DataFrame(results)
 
 
-def load_json(teams_file_path, players_file_path, results_file_path):
-    def convert_to_numeric(data):
-        for key, value in data.items():
-            if isinstance(value, str) and value.strip() == "":
-                data[key] = 0
-            else:
-                try:
-                    data[key] = float(value.replace(",", "."))
-                except (ValueError, AttributeError):
-                    pass
-        return data
+def convert_to_numeric(data):
+    for key, value in data.items():
+        if isinstance(value, str) and value.strip() == "":
+            data[key] = 0
+        else:
+            try:
+                data[key] = float(value.replace(",", "."))
+            except (ValueError, AttributeError):
+                pass
+    return data
 
+
+def load_json(teams_file_path, players_file_path, results_file_path):
     teams = []
     file_teams = json.load(open(teams_file_path))
     for data in file_teams:
@@ -290,6 +287,7 @@ def load_json(teams_file_path, players_file_path, results_file_path):
     results_data = json.load(open(results_file_path))
     for team in teams:
         team.load_results(results_data)
+
     return teams
 
 
@@ -326,34 +324,19 @@ def predict_match_result(team_1: Team, team_2: Team):
 if __name__ == "__main__":
     team_objects = load_json('legavolley_scraper/legavolley_scraper/spiders/teams_stats.json',
                              'legavolley_scraper/legavolley_scraper/spiders/players_stats.json',
-                             'legavolley_scraper/legavolley_scraper/results.json')
+                             'legavolley_scraper/legavolley_scraper/spiders/results.json')
 
     team_1 = next(team for team in team_objects if team.name == "Itas Trentino")
-    team_2 = next(team for team in team_objects if team.name == "Gioiella Prisma Taranto")
-
-    # Seleziona i titolari
     team_1.select_starters(
         ["Garcia Fernandez Gabi", "Kozamernik Jan", "Laurenzano Gabriele", "Lavia Daniele", "Michieletto Alessandro",
          "Resende Gualberto Flavio", "Sbertoli Riccardo"])
+
+    team_2 = next(team for team in team_objects if team.name == "Mint Vero Volley Monza")
     team_2.select_starters(
-        ["Alonso Roamy", "D'Heer Wout", "Gironi Fabrizio", "Held Tim", "Hofer Brodie", "Lanza Filippo",
-         "Zimmermann Jan"])
+        ["Beretta Thomas", "Di Martino Gabriele", "Gaggini Marco", "Kreling Fernando", "Marttila Luka", "Rohrs Erik",
+         "Szwarc Arthur"])
 
-    threshold_range = np.arange(0, 5, 0.05)
-    test_size_range = np.arange(0.5, 0.9, 0.05)
+    team_1.train_model(threshold=1, test_size=0.2)
+    team_2.train_model(threshold=1, test_size=0.2)
 
-    logging.info("Starting model parameter optimization...")
-    results_df = optimize_model_parameters_parallel(team_1, team_2, threshold_range, test_size_range)
-    logging.info("Optimization complete!")
-
-    best_result = results_df.sort_values(by='Test Accuracy', ascending=False).iloc[0]
-    logging.info("Best parameter combination:")
-    logging.info(best_result)
-
-    for team in team_objects:
-        logging.info(f"Training model for team: {team.name}")
-        team.train_model(best_result['Variance Threshold'], 0.5)
-
-    team1, team2 = team_objects
-    prediction = team1.predict_match_result(team2)
-    logging.info(f"Predicted result between {team1.name} and {team2.name}: {prediction}")
+    # optimize_model_parameters_parallel(team_1, team_1, [1, 10], [0.1, 0.9])
