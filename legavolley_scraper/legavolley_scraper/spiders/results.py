@@ -20,9 +20,10 @@ class ResultsSpider(scrapy.Spider):
         giornate = response.xpath('//*[@id="divframe"]/form/div/div[4]/div[2]/ul/li/@data-value').getall()
 
         # Cicla tra tutte le giornate e costruisce l'URL per ogni giornata
-        for giornata in giornate:
-            url = f'https://www.legavolley.it/risultati/?Anno=2024&IdCampionato=947&IdFase=1&IdGiornata={giornata}'
-            yield scrapy.Request(url, callback=self.parse_giornata)
+        for fase in {1,2}: # Cicla tra le due fasi
+            for giornata in giornate:
+                url = f'https://www.legavolley.it/risultati/?Anno=2024&IdCampionato=947&IdFase={fase}&IdGiornata={giornata}'
+                yield scrapy.Request(url, callback=self.parse_giornata)
 
     def parse_giornata(self, response):
         results = []

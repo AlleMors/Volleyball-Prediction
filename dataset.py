@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from IPython.core.macro import coding_declaration
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -90,7 +91,7 @@ class Team:
         self.results = []
         self.name = team_data['squadra']
         self.codename = team_data['codice']
-        self.players = [Player(player) for player in team_data['players']]  # Converti in istanze Player
+        self.players = [Player(player) for player in team_data['players']]
         self.starters = []
         self.totals = convert_to_numeric(team_data['totali'])
 
@@ -146,111 +147,132 @@ class Team:
         return match_outcomes
 
     def train_model(self, threshold, test_size):
-        combined_data = pd.DataFrame([player.__dict__ for player in self.starters])
-        print(combined_data)
+        combined_data = []
 
-        # Genera l'outcome della partita (vittoria/sconfitta)
-        outcome_map = {'3-0': 1, '3-1': 1, '3-2': 1, '2-3': 0, '1-3': 0, '0-3': 0}
+        # Determina il numero massimo di giornate
+        max_giornate = max(len(player.giornate) for player in self.players)
+
+        # Itera su ogni giornata
+        for i in range(max_giornate):
+            giornata_stats = {}
+
+            # Itera su tutti i giocatori e raccogli le statistiche della giornata corrente
+            for player in self.starters:
+                if i < len(player.giornate):
+                    giornata_stats.update({
+                        f'{player.nome}_set_giocati': player.giornate[i]['set_giocati'],
+                        f'{player.nome}_punti_totali': player.giornate[i]['punti_totali'],
+                        f'{player.nome}_punti_bp': player.giornate[i]['punti_bp'],
+                        f'{player.nome}_battuta_totale': player.giornate[i]['battuta_totale'],
+                        f'{player.nome}_ace': player.giornate[i]['ace'],
+                        f'{player.nome}_errori_battuta': player.giornate[i]['errori_battuta'],
+                        f'{player.nome}_ace_per_set': player.giornate[i]['ace_per_set'],
+                        f'{player.nome}_battuta_efficienza': player.giornate[i]['battuta_efficienza'],
+                        f'{player.nome}_ricezione_totale': player.giornate[i]['ricezione_totale'],
+                        f'{player.nome}_errori_ricezione': player.giornate[i]['errori_ricezione'],
+                        f'{player.nome}_ricezione_negativa': player.giornate[i]['ricezione_negativa'],
+                        f'{player.nome}_ricezione_perfetta': player.giornate[i]['ricezione_perfetta'],
+                        f'{player.nome}_ricezione_perfetta_perc': player.giornate[i]['ricezione_perfetta_perc'],
+                        f'{player.nome}_ricezione_efficienza': player.giornate[i]['ricezione_efficienza'],
+                        f'{player.nome}_attacco_totale': player.giornate[i]['attacco_totale'],
+                        f'{player.nome}_errori_attacco': player.giornate[i]['errori_attacco'],
+                        f'{player.nome}_attacco_murati': player.giornate[i]['attacco_murati'],
+                        f'{player.nome}_attacco_perfetti': player.giornate[i]['attacco_perfetti'],
+                        f'{player.nome}_attacco_perfetti_perc': player.giornate[i]['attacco_perfetti_perc'],
+                        f'{player.nome}_attacco_efficienza': player.giornate[i]['attacco_efficienza'],
+                        f'{player.nome}_muro_perfetti': player.giornate[i]['muro_perfetti'],
+                        f'{player.nome}_muro_per_set': player.giornate[i]['muro_per_set']
+                    })
+
+            # Aggiungi le statistiche della giornata all'elenco combined_data
+            combined_data.append(giornata_stats)
+
+        # Crea il DataFrame per i dati combinati
+        combined_data_df = pd.DataFrame(combined_data).apply(pd.to_numeric, errors='coerce')
+
+        # Gestisci i NaN
+        from sklearn.impute import SimpleImputer
+        imputer = SimpleImputer(strategy='mean')
+        combined_data_df = pd.DataFrame(imputer.fit_transform(combined_data_df), columns=combined_data_df.columns)
+
+        # Prepara l'output Y basato sui risultati delle partite
+        outcome_map = {'3-0': 3, '3-1': 3, '3-2': 2, '2-3': 1, '1-3': 0, '0-3': 0}
         y = pd.Series([outcome_map[result] for result in self.results], name='Match_Outcome')
+        print(self.name)
+        print(self.results)
+        print(y)
 
-        # Prepara i dati per il training
-        X_train, X_test, y_train, y_test = train_test_split(combined_data, y, test_size=test_size, random_state=42)
+        # Dividi il dataset in training e test
+        X_train, X_test, y_train, y_test = train_test_split(combined_data_df, y, test_size=test_size,
+                                                            random_state=42)
+
+        # Normalizzazione dei dati
         scaler = StandardScaler()
         X_train = pd.DataFrame(scaler.fit_transform(X_train), columns=X_train.columns)
         X_test = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns)
 
         # Usa RandomForestClassifier
-        self.model = RandomForestClassifier(n_estimators=100, random_state=42)
+        self.model = RandomForestClassifier(random_state=42)
         self.model.fit(X_train, y_train)
-        self.features = list(X_train.columns)
 
-        # Calcola le importanze delle feature
-        feature_importance_df = pd.DataFrame({
-            'Feature': self.features,
-            'Importance': self.model.feature_importances_
-        })
-        logging.info(f"Feature importances for {self.name}: {feature_importance_df}")
+        # Predizione e valutazione
+        y_pred = self.model.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        print(f"Accuracy: {accuracy * 100:.2f}%")
 
-        # Salva le importanze in un file CSV
-        output_dir = 'feature_importances'
-        os.makedirs(output_dir, exist_ok=True)
-        feature_importance_file = os.path.join(output_dir, f'{self.name}_feature_importances.csv')
-        feature_importance_df.sort_values(by='Importance', ascending=False).to_csv(feature_importance_file,
-                                                                                   index=False)
-        logging.info(f"Feature importances saved to {feature_importance_file}")
+    def train_match_winner_model(self, team_2, test_size=0.2):
+        combined_data = []
 
+        # Itera su tutte le giornate e raccogli le statistiche per i giocatori di entrambe le squadre
+        for i in range(max(len(player.giornate) for player in self.players)):
+            giornata_stats = {}
+            for player in self.players:
+                if i < len(player.giornate):
+                    giornata_stats.update({
+                        f'{player.nome}_punti_totali': player.giornate[i]['punti_totali'],
+                        # Aggiungi altre statistiche dei giocatori qui
+                    })
 
-def optimize_model_parameters_parallel(team_1, team_2, threshold_range, test_size_range):
-    def process_combination(threshold, test_size, team_1, team_2):
-        # Extract numerical values from player totals
-        combined_data_1 = np.array([list(player.totals.values()) for player in team_1.starters if
-                                    isinstance(player.totals, dict) and len(player.totals) > 0])
-        combined_data_2 = np.array([list(player.totals.values()) for player in team_2.starters if
-                                    isinstance(player.totals, dict) and len(player.totals) > 0])
+            for player in team_2.players:
+                if i < len(player.giornate):
+                    giornata_stats.update({
+                        f'{player.nome}_punti_totali': player.giornate[i]['punti_totali'],
+                        # Aggiungi altre statistiche dei giocatori qui
+                    })
 
-        y_1 = team_1.compute_points('legavolley_scraper/legavolley_scraper/spiders/results.json')
-        y_2 = team_2.compute_points('legavolley_scraper/legavolley_scraper/spiders/results.json')
+            combined_data.append(giornata_stats)
 
-        print(y_1)
-        print(y_2)
+        # Crea il DataFrame per i dati combinati
+        combined_data_df = pd.DataFrame(combined_data).apply(pd.to_numeric, errors='coerce')
 
-        # Preprocess data
-        variances_1 = np.var(combined_data_1, axis=0)
-        variances_2 = np.var(combined_data_2, axis=0)
+        # **Aggiungi SimpleImputer per gestire i NaN**
+        from sklearn.impute import SimpleImputer
+        imputer = SimpleImputer(strategy='mean')
+        combined_data_df = pd.DataFrame(imputer.fit_transform(combined_data_df), columns=combined_data_df.columns)
 
-        high_variance_features_1 = variances_1 > threshold
-        high_variance_features_2 = variances_2 > threshold
+        # Prepara l'output Y: 1 per vittoria di self, 0 per vittoria di team_2
+        outcome_map = {'3-0': 1, '3-1': 1, '3-2': 1, '2-3': 0, '1-3': 0, '0-3': 0}
+        y = pd.Series([outcome_map[result] for result in self.results], name='Match_Outcome')
 
-        X_high_variance_1 = combined_data_1[:, high_variance_features_1]
-        X_high_variance_2 = combined_data_2[:, high_variance_features_2]
+        # Dividi il dataset in training e test
+        X_train, X_test, y_train, y_test = train_test_split(combined_data_df, y, test_size=test_size, random_state=42)
 
-        # Split data
-        X_train_1, X_test_1, y_train_1, y_test_1 = train_test_split(X_high_variance_1, y_1, test_size=test_size,
-                                                                    random_state=42)
-        X_train_2, X_test_2, y_train_2, y_test_2 = train_test_split(X_high_variance_2, y_2, test_size=test_size,
-                                                                    random_state=42)
+        # Normalizzazione dei dati
+        scaler = StandardScaler()
+        X_train = pd.DataFrame(scaler.fit_transform(X_train), columns=X_train.columns)
+        X_test = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns)
 
-        # Scale data
-        scaler_1 = StandardScaler()
-        X_train_1 = scaler_1.fit_transform(X_train_1)
-        X_test_1 = scaler_1.transform(X_test_1)
+        # Usa RandomForestClassifier per prevedere chi vincerà
+        self.model = RandomForestClassifier(random_state=42)
+        self.model.fit(X_train, y_train)
 
-        scaler_2 = StandardScaler()
-        X_train_2 = scaler_2.fit_transform(X_train_2)
-        X_test_2 = scaler_2.transform(X_test_2)
+        # Predizione e valutazione
+        y_pred = self.model.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        print(f"Accuracy: {accuracy * 100:.2f}%")
 
-        # Train model
-        model_1 = RandomForestClassifier(n_estimators=100, random_state=42)
-        model_1.fit(X_train_1, y_train_1)
+        return self.model
 
-        model_2 = RandomForestClassifier(n_estimators=100, random_state=42)
-        model_2.fit(X_train_2, y_train_2)
-
-        # Evaluate model
-        test_accuracy_1 = accuracy_score(y_test_1, model_1.predict(X_test_1))
-        train_accuracy_1 = accuracy_score(y_train_1, model_1.predict(X_train_1))
-
-        test_accuracy_2 = accuracy_score(y_test_2, model_2.predict(X_test_2))
-        train_accuracy_2 = accuracy_score(y_train_2, model_2.predict(X_train_2))
-
-        return {
-            'Team 1': team_1.name,
-            'Team 2': team_2.name,
-            'Variance Threshold': threshold,
-            'Test Size': test_size,
-            'Train Accuracy Team 1': train_accuracy_1,
-            'Test Accuracy Team 1': test_accuracy_1,
-            'Train Accuracy Team 2': train_accuracy_2,
-            'Test Accuracy Team 2': test_accuracy_2
-        }
-
-    results = []
-    for threshold in threshold_range:
-        for test_size in test_size_range:
-            result = process_combination(threshold, test_size, team_1, team_2)
-            results.append(result)
-
-    return pd.DataFrame(results)
 
 
 def convert_to_numeric(data):
@@ -338,5 +360,12 @@ if __name__ == "__main__":
 
     team_1.train_model(threshold=1, test_size=0.2)
     team_2.train_model(threshold=1, test_size=0.2)
+
+    model = team_1.train_match_winner_model(team_2)
+
+    # Prevedere il vincitore per una nuova partita
+    winner = model.predict([[...]])  # Fornisci qui i dati per una partita nuova
+    result = "Itas Trentino" if winner == 1 else "Mint Vero Volley Monza"
+    print(f"Predicted winner: {result}")
 
     # optimize_model_parameters_parallel(team_1, team_1, [1, 10], [0.1, 0.9])
