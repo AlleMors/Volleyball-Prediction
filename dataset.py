@@ -220,32 +220,41 @@ class Team:
         accuracy = accuracy_score(y_test, y_pred)
         print(f"Accuracy: {accuracy * 100:.2f}%")
 
+    def aggregate_past_stats(player):
+        """Aggrega le statistiche passate di un giocatore."""
+        aggregated_stats = {}
+
+        # Prendi la media delle statistiche su tutte le giornate giocate
+        if player.giornate:
+            aggregated_stats['punti_totali'] = np.mean([giornata['punti_totali'] for giornata in player.giornate])
+            aggregated_stats['battuta_totale'] = np.mean([giornata['battuta_totale'] for giornata in player.giornate])
+            # Aggiungi altre statistiche aggregate qui
+        else:
+            # Se non ci sono dati disponibili, assegna un valore di default
+            aggregated_stats['punti_totali'] = 0
+            aggregated_stats['battuta_totale'] = 0
+            # Aggiungi altre statistiche con valori predefiniti
+
+        return aggregated_stats
+
     def train_match_winner_model(self, team_2, test_size=0.2):
         combined_data = []
 
-        # Itera su tutte le giornate e raccogli le statistiche per i giocatori di entrambe le squadre
+        # Aggrega le statistiche passate dei titolari di entrambe le squadre in una singola riga per partita
         for i in range(max(len(player.giornate) for player in self.players)):
-            giornata_stats = {}
-            for player in self.players:
-                if i < len(player.giornate):
-                    giornata_stats.update({
-                        f'{player.nome}_punti_totali': player.giornate[i]['punti_totali'],
-                        # Aggiungi altre statistiche dei giocatori qui
-                    })
+            match_stats = {}
+            for player in self.starters:
+                match_stats.update(aggregate_past_stats(player))
 
-            for player in team_2.players:
-                if i < len(player.giornate):
-                    giornata_stats.update({
-                        f'{player.nome}_punti_totali': player.giornate[i]['punti_totali'],
-                        # Aggiungi altre statistiche dei giocatori qui
-                    })
+            for player in team_2.starters:
+                match_stats.update(aggregate_past_stats(player))
 
-            combined_data.append(giornata_stats)
+            combined_data.append(match_stats)
 
         # Crea il DataFrame per i dati combinati
         combined_data_df = pd.DataFrame(combined_data).apply(pd.to_numeric, errors='coerce')
 
-        # **Aggiungi SimpleImputer per gestire i NaN**
+        # Gestisci i NaN
         from sklearn.impute import SimpleImputer
         imputer = SimpleImputer(strategy='mean')
         combined_data_df = pd.DataFrame(imputer.fit_transform(combined_data_df), columns=combined_data_df.columns)
@@ -271,8 +280,90 @@ class Team:
         accuracy = accuracy_score(y_test, y_pred)
         print(f"Accuracy: {accuracy * 100:.2f}%")
 
+        # Prepara i dati aggregati direttamente per la predizione
+        new_match_stats_flat = []
+
+        # Usa direttamente le statistiche già aggregate
+        for player in self.starters:
+            aggregated_stats = aggregate_past_stats(player)
+            new_match_stats_flat.extend(aggregated_stats.values())
+
+        for player in team_2.starters:
+            aggregated_stats = aggregate_past_stats(player)
+            new_match_stats_flat.extend(aggregated_stats.values())
+
+        # Controlla il numero di caratteristiche per la predizione
+        print(f"Expected number of features: {self.model.n_features_in_}, Got: {len(new_match_stats_flat)}")
+
+        # Predire il vincitore per la nuova partita
+        winner = self.model.predict([new_match_stats_flat])  # L'input deve essere 2D
+        result = "Itas Trentino" if winner == 1 else "Mint Vero Volley Monza"
+        print(f"Predicted winner: {result}")
+
         return self.model
 
+
+def aggregate_past_stats(player):
+    """Aggrega le statistiche passate di un giocatore."""
+    aggregated_stats = {}
+
+    # Prendi la media delle statistiche su tutte le giornate giocate
+    if player.giornate:
+        aggregated_stats['set_giocati'] = np.mean([giornata['set_giocati'] for giornata in player.giornate])
+        aggregated_stats['punti_totali'] = np.mean([giornata['punti_totali'] for giornata in player.giornate])
+        aggregated_stats['punti_bp'] = np.mean([giornata['punti_bp'] for giornata in player.giornate])
+        aggregated_stats['battuta_totale'] = np.mean([giornata['battuta_totale'] for giornata in player.giornate])
+        aggregated_stats['ace'] = np.mean([giornata['ace'] for giornata in player.giornate])
+        aggregated_stats['errori_battuta'] = np.mean([giornata['errori_battuta'] for giornata in player.giornate])
+        aggregated_stats['ace_per_set'] = np.mean([giornata['ace_per_set'] for giornata in player.giornate])
+        aggregated_stats['battuta_efficienza'] = np.mean(
+            [giornata['battuta_efficienza'] for giornata in player.giornate])
+        aggregated_stats['ricezione_totale'] = np.mean([giornata['ricezione_totale'] for giornata in player.giornate])
+        aggregated_stats['errori_ricezione'] = np.mean([giornata['errori_ricezione'] for giornata in player.giornate])
+        aggregated_stats['ricezione_negativa'] = np.mean(
+            [giornata['ricezione_negativa'] for giornata in player.giornate])
+        aggregated_stats['ricezione_perfetta'] = np.mean(
+            [giornata['ricezione_perfetta'] for giornata in player.giornate])
+        aggregated_stats['ricezione_perfetta_perc'] = np.mean(
+            [giornata['ricezione_perfetta_perc'] for giornata in player.giornate])
+        aggregated_stats['ricezione_efficienza'] = np.mean(
+            [giornata['ricezione_efficienza'] for giornata in player.giornate])
+        aggregated_stats['attacco_totale'] = np.mean([giornata['attacco_totale'] for giornata in player.giornate])
+        aggregated_stats['errori_attacco'] = np.mean([giornata['errori_attacco'] for giornata in player.giornate])
+        aggregated_stats['attacco_murati'] = np.mean([giornata['attacco_murati'] for giornata in player.giornate])
+        aggregated_stats['attacco_perfetti'] = np.mean([giornata['attacco_perfetti'] for giornata in player.giornate])
+        aggregated_stats['attacco_perfetti_perc'] = np.mean(
+            [giornata['attacco_perfetti_perc'] for giornata in player.giornate])
+        aggregated_stats['attacco_efficienza'] = np.mean(
+            [giornata['attacco_efficienza'] for giornata in player.giornate])
+        aggregated_stats['muro_perfetti'] = np.mean([giornata['muro_perfetti'] for giornata in player.giornate])
+        aggregated_stats['muro_per_set'] = np.mean([giornata['muro_per_set'] for giornata in player.giornate])
+
+    else:
+        aggregated_stats['set_giocati'] = 0
+        aggregated_stats['punti_totali'] = 0
+        aggregated_stats['punti_bp'] = 0
+        aggregated_stats['battuta_totale'] = 0
+        aggregated_stats['ace'] = 0
+        aggregated_stats['errori_battuta'] = 0
+        aggregated_stats['ace_per_set'] = 0
+        aggregated_stats['battuta_efficienza'] = 0
+        aggregated_stats['ricezione_totale'] = 0
+        aggregated_stats['errori_ricezione'] = 0
+        aggregated_stats['ricezione_negativa'] = 0
+        aggregated_stats['ricezione_perfetta'] = 0
+        aggregated_stats['ricezione_perfetta_perc'] = 0
+        aggregated_stats['ricezione_efficienza'] = 0
+        aggregated_stats['attacco_totale'] = 0
+        aggregated_stats['errori_attacco'] = 0
+        aggregated_stats['attacco_murati'] = 0
+        aggregated_stats['attacco_perfetti'] = 0
+        aggregated_stats['attacco_perfetti_perc'] = 0
+        aggregated_stats['attacco_efficienza'] = 0
+        aggregated_stats['muro_perfetti'] = 0
+        aggregated_stats['muro_per_set'] = 0
+
+    return aggregated_stats
 
 
 def convert_to_numeric(data):
@@ -358,14 +449,6 @@ if __name__ == "__main__":
         ["Beretta Thomas", "Di Martino Gabriele", "Gaggini Marco", "Kreling Fernando", "Marttila Luka", "Rohrs Erik",
          "Szwarc Arthur"])
 
-    team_1.train_model(threshold=1, test_size=0.2)
-    team_2.train_model(threshold=1, test_size=0.2)
-
+    # Addestra il modello per predire il vincitore tra le due squadre
     model = team_1.train_match_winner_model(team_2)
 
-    # Prevedere il vincitore per una nuova partita
-    winner = model.predict([[...]])  # Fornisci qui i dati per una partita nuova
-    result = "Itas Trentino" if winner == 1 else "Mint Vero Volley Monza"
-    print(f"Predicted winner: {result}")
-
-    # optimize_model_parameters_parallel(team_1, team_1, [1, 10], [0.1, 0.9])
