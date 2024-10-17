@@ -95,12 +95,6 @@ class Team:
         self.starters = []
         self.totals = convert_to_numeric(team_data['totali'])
 
-    def convert_to_float(value):
-        try:
-            return float(value.replace(',', '.'))
-        except ValueError:
-            return float('nan')
-
     def select_starters(self, starter_names):
         self.starters = [player for player in self.players if player.nome in starter_names]
 
@@ -134,118 +128,24 @@ class Team:
                 return player
         return None
 
-    def preprocess_data(self, combined_data, threshold):
-        variances = combined_data.var()
-        high_variance_features = variances[variances > threshold].index
-        return combined_data[high_variance_features]
-
-    def compute_match_outcome(self, results, team_name):
-        outcome_map = {'3-0': 1, '3-1': 1, '3-2': 1, '2-3': 0, '1-3': 0, '0-3': 0}
-        is_home_team = results['CASA'] == team_name
-        match_outcomes = np.where(is_home_team, results['SET'].map(outcome_map),
-                                  results['SET'].map(lambda x: 1 if outcome_map[x] == 0 else 0))
-        return match_outcomes
-
-    def train_model(self, threshold, test_size):
+    def train_match_winner_model(self, team_2, test_size=0.2):
         combined_data = []
 
-        # Determina il numero massimo di giornate
-        max_giornate = max(len(player.giornate) for player in self.players)
-
-        # Itera su ogni giornata
-        for i in range(max_giornate):
-            giornata_stats = {}
-
-            # Itera su tutti i giocatori e raccogli le statistiche della giornata corrente
+        # Aggrega le statistiche passate dei titolari di entrambe le squadre in una singola riga per partita
+        for i in range(max(len(player.giornate) for player in self.players)):
+            match_stats = {}
             for player in self.starters:
-                if i < len(player.giornate):
-                    giornata_stats.update({
-                        f'{player.nome}_set_giocati': player.giornate[i]['set_giocati'],
-                        f'{player.nome}_punti_totali': player.giornate[i]['punti_totali'],
-                        f'{player.nome}_punti_bp': player.giornate[i]['punti_bp'],
-                        f'{player.nome}_battuta_totale': player.giornate[i]['battuta_totale'],
-                        f'{player.nome}_ace': player.giornate[i]['ace'],
-                        f'{player.nome}_errori_battuta': player.giornate[i]['errori_battuta'],
-                        f'{player.nome}_ace_per_set': player.giornate[i]['ace_per_set'],
-                        f'{player.nome}_battuta_efficienza': player.giornate[i]['battuta_efficienza'],
-                        f'{player.nome}_ricezione_totale': player.giornate[i]['ricezione_totale'],
-                        f'{player.nome}_errori_ricezione': player.giornate[i]['errori_ricezione'],
-                        f'{player.nome}_ricezione_negativa': player.giornate[i]['ricezione_negativa'],
-                        f'{player.nome}_ricezione_perfetta': player.giornate[i]['ricezione_perfetta'],
-                        f'{player.nome}_ricezione_perfetta_perc': player.giornate[i]['ricezione_perfetta_perc'],
-                        f'{player.nome}_ricezione_efficienza': player.giornate[i]['ricezione_efficienza'],
-                        f'{player.nome}_attacco_totale': player.giornate[i]['attacco_totale'],
-                        f'{player.nome}_errori_attacco': player.giornate[i]['errori_attacco'],
-                        f'{player.nome}_attacco_murati': player.giornate[i]['attacco_murati'],
-                        f'{player.nome}_attacco_perfetti': player.giornate[i]['attacco_perfetti'],
-                        f'{player.nome}_attacco_perfetti_perc': player.giornate[i]['attacco_perfetti_perc'],
-                        f'{player.nome}_attacco_efficienza': player.giornate[i]['attacco_efficienza'],
-                        f'{player.nome}_muro_perfetti': player.giornate[i]['muro_perfetti'],
-                        f'{player.nome}_muro_per_set': player.giornate[i]['muro_per_set']
-                    })
+                match_stats.update(aggregate_past_stats(player))
 
-            # Aggiungi le statistiche della giornata all'elenco combined_data
-            combined_data.append(giornata_stats)
+            for player in team_2.starters:
+                match_stats.update(aggregate_past_stats(player))
+
+            combined_data.append(match_stats)
 
         # Crea il DataFrame per i dati combinati
         combined_data_df = pd.DataFrame(combined_data).apply(pd.to_numeric, errors='coerce')
 
         # Gestisci i NaN
-        from sklearn.impute import SimpleImputer
-        imputer = SimpleImputer(strategy='mean')
-        combined_data_df = pd.DataFrame(imputer.fit_transform(combined_data_df), columns=combined_data_df.columns)
-
-        # Prepara l'output Y basato sui risultati delle partite
-        outcome_map = {'3-0': 3, '3-1': 3, '3-2': 2, '2-3': 1, '1-3': 0, '0-3': 0}
-        y = pd.Series([outcome_map[result] for result in self.results], name='Match_Outcome')
-        print(self.name)
-        print(self.results)
-        print(y)
-
-        # Dividi il dataset in training e test
-        X_train, X_test, y_train, y_test = train_test_split(combined_data_df, y, test_size=test_size,
-                                                            random_state=42)
-
-        # Normalizzazione dei dati
-        scaler = StandardScaler()
-        X_train = pd.DataFrame(scaler.fit_transform(X_train), columns=X_train.columns)
-        X_test = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns)
-
-        # Usa RandomForestClassifier
-        self.model = RandomForestClassifier(random_state=42)
-        self.model.fit(X_train, y_train)
-
-        # Predizione e valutazione
-        y_pred = self.model.predict(X_test)
-        accuracy = accuracy_score(y_test, y_pred)
-        print(f"Accuracy: {accuracy * 100:.2f}%")
-
-    def train_match_winner_model(self, team_2, test_size=0.2):
-        combined_data = []
-
-        # Itera su tutte le giornate e raccogli le statistiche per i giocatori di entrambe le squadre
-        for i in range(max(len(player.giornate) for player in self.players)):
-            giornata_stats = {}
-            for player in self.players:
-                if i < len(player.giornate):
-                    giornata_stats.update({
-                        f'{player.nome}_punti_totali': player.giornate[i]['punti_totali'],
-                        # Aggiungi altre statistiche dei giocatori qui
-                    })
-
-            for player in team_2.players:
-                if i < len(player.giornate):
-                    giornata_stats.update({
-                        f'{player.nome}_punti_totali': player.giornate[i]['punti_totali'],
-                        # Aggiungi altre statistiche dei giocatori qui
-                    })
-
-            combined_data.append(giornata_stats)
-
-        # Crea il DataFrame per i dati combinati
-        combined_data_df = pd.DataFrame(combined_data).apply(pd.to_numeric, errors='coerce')
-
-        # **Aggiungi SimpleImputer per gestire i NaN**
         from sklearn.impute import SimpleImputer
         imputer = SimpleImputer(strategy='mean')
         combined_data_df = pd.DataFrame(imputer.fit_transform(combined_data_df), columns=combined_data_df.columns)
@@ -271,8 +171,88 @@ class Team:
         accuracy = accuracy_score(y_test, y_pred)
         print(f"Accuracy: {accuracy * 100:.2f}%")
 
+        # Prepara i dati aggregati direttamente per la predizione
+        new_match_stats = {}
+
+        # Usa direttamente le statistiche già aggregate
+        for player in self.starters:
+            new_match_stats.update(aggregate_past_stats(player))
+
+        for player in team_2.starters:
+            new_match_stats.update(aggregate_past_stats(player))
+
+        # Convert to DataFrame and ensure the feature names match
+        new_match_stats_df = pd.DataFrame([new_match_stats], columns=combined_data_df.columns)
+
+        # Predire il vincitore per la nuova partita
+        winner = self.model.predict(new_match_stats_df)  # L'input deve essere 2D
+        result = team_1.name if winner == 1 else team_2.name
+        print(f"Predicted winner: {result}")
+
         return self.model
 
+
+def aggregate_past_stats(player):
+    """Aggrega le statistiche passate di un giocatore."""
+    aggregated_stats = {}
+
+    # Prendi la media delle statistiche su tutte le giornate giocate
+    if player.giornate:
+        aggregated_stats['set_giocati'] = np.mean([giornata['set_giocati'] for giornata in player.giornate])
+        aggregated_stats['punti_totali'] = np.mean([giornata['punti_totali'] for giornata in player.giornate])
+        aggregated_stats['punti_bp'] = np.mean([giornata['punti_bp'] for giornata in player.giornate])
+        aggregated_stats['battuta_totale'] = np.mean([giornata['battuta_totale'] for giornata in player.giornate])
+        aggregated_stats['ace'] = np.mean([giornata['ace'] for giornata in player.giornate])
+        aggregated_stats['errori_battuta'] = np.mean([giornata['errori_battuta'] for giornata in player.giornate])
+        aggregated_stats['ace_per_set'] = np.mean([giornata['ace_per_set'] for giornata in player.giornate])
+        aggregated_stats['battuta_efficienza'] = np.mean(
+            [giornata['battuta_efficienza'] for giornata in player.giornate])
+        aggregated_stats['ricezione_totale'] = np.mean([giornata['ricezione_totale'] for giornata in player.giornate])
+        aggregated_stats['errori_ricezione'] = np.mean([giornata['errori_ricezione'] for giornata in player.giornate])
+        aggregated_stats['ricezione_negativa'] = np.mean(
+            [giornata['ricezione_negativa'] for giornata in player.giornate])
+        aggregated_stats['ricezione_perfetta'] = np.mean(
+            [giornata['ricezione_perfetta'] for giornata in player.giornate])
+        aggregated_stats['ricezione_perfetta_perc'] = np.mean(
+            [giornata['ricezione_perfetta_perc'] for giornata in player.giornate])
+        aggregated_stats['ricezione_efficienza'] = np.mean(
+            [giornata['ricezione_efficienza'] for giornata in player.giornate])
+        aggregated_stats['attacco_totale'] = np.mean([giornata['attacco_totale'] for giornata in player.giornate])
+        aggregated_stats['errori_attacco'] = np.mean([giornata['errori_attacco'] for giornata in player.giornate])
+        aggregated_stats['attacco_murati'] = np.mean([giornata['attacco_murati'] for giornata in player.giornate])
+        aggregated_stats['attacco_perfetti'] = np.mean([giornata['attacco_perfetti'] for giornata in player.giornate])
+        aggregated_stats['attacco_perfetti_perc'] = np.mean(
+            [giornata['attacco_perfetti_perc'] for giornata in player.giornate])
+        aggregated_stats['attacco_efficienza'] = np.mean(
+            [giornata['attacco_efficienza'] for giornata in player.giornate])
+        aggregated_stats['muro_perfetti'] = np.mean([giornata['muro_perfetti'] for giornata in player.giornate])
+        aggregated_stats['muro_per_set'] = np.mean([giornata['muro_per_set'] for giornata in player.giornate])
+
+    else:
+        aggregated_stats['set_giocati'] = 0
+        aggregated_stats['punti_totali'] = 0
+        aggregated_stats['punti_bp'] = 0
+        aggregated_stats['battuta_totale'] = 0
+        aggregated_stats['ace'] = 0
+        aggregated_stats['errori_battuta'] = 0
+        aggregated_stats['ace_per_set'] = 0
+        aggregated_stats['battuta_efficienza'] = 0
+        aggregated_stats['ricezione_totale'] = 0
+        aggregated_stats['errori_ricezione'] = 0
+        aggregated_stats['ricezione_negativa'] = 0
+        aggregated_stats['ricezione_perfetta'] = 0
+        aggregated_stats['ricezione_perfetta_perc'] = 0
+        aggregated_stats['ricezione_efficienza'] = 0
+        aggregated_stats['attacco_totale'] = 0
+        aggregated_stats['errori_attacco'] = 0
+        aggregated_stats['attacco_murati'] = 0
+        aggregated_stats['attacco_perfetti'] = 0
+        aggregated_stats['attacco_perfetti_perc'] = 0
+        aggregated_stats['attacco_efficienza'] = 0
+        aggregated_stats['muro_perfetti'] = 0
+        aggregated_stats['muro_per_set'] = 0
+
+    return aggregated_stats
 
 
 def convert_to_numeric(data):
@@ -313,57 +293,26 @@ def load_json(teams_file_path, players_file_path, results_file_path):
     return teams
 
 
-def predict_match_result(team_1: Team, team_2: Team):
-    # Dati della propria squadra
-    team_1_data = pd.concat([player.totals for player in team_1.players])
-
-    # Dati della squadra avversaria
-    team_2_data = pd.concat([player.totals for player in team_2.players])
-
-    # Aggiungi i risultati precedenti della propria squadra con un suffisso
-    team_1_results = self.results[['SET', 'CASA', 'OSPITE']].copy()
-    team_1_results.columns = [f"{col}_team" for col in team_1_results.columns]  # Aggiungi suffisso
-
-    # Aggiungi i risultati precedenti della squadra avversaria con un suffisso
-    team_2_results = team_2.results[['SET', 'CASA', 'OSPITE']].copy()
-    team_2_results.columns = [f"{col}_opponent" for col in team_2_results.columns]  # Aggiungi suffisso
-
-    # Combina tutti i dati
-    combined_data = pd.concat([team_1_data, team_2_data, team_1_results, team_2_results], axis=1)
-
-    # Riorganizza le colonne in base alle feature del modello
-    combined_data = combined_data.reindex(columns=self.features).fillna(0)
-
-    # Normalizza i dati
-    combined_data_scaled = pd.DataFrame(self.scaler.transform(combined_data), columns=self.features)
-
-    # Effettua la previsione
-    prediction = self.model.predict(combined_data_scaled)
-    result = "Win" if prediction[0] == 1 else "Loss"
-    return result
-
-
 if __name__ == "__main__":
     team_objects = load_json('legavolley_scraper/legavolley_scraper/spiders/teams_stats.json',
                              'legavolley_scraper/legavolley_scraper/spiders/players_stats.json',
                              'legavolley_scraper/legavolley_scraper/spiders/results.json')
 
-    team_1 = next(team for team in team_objects if team.name == "Itas Trentino")
-    team_1.select_starters(
-        ["Garcia Fernandez Gabi", "Kozamernik Jan", "Laurenzano Gabriele", "Lavia Daniele", "Michieletto Alessandro",
-         "Resende Gualberto Flavio", "Sbertoli Riccardo"])
+    team_2 = next(team for team in team_objects if team.name == "Sir Susa Vim Perugia")
+    team_1 = next(team for team in team_objects if team.name == "Cisterna Volley")
 
-    team_2 = next(team for team in team_objects if team.name == "Mint Vero Volley Monza")
-    team_2.select_starters(
-        ["Beretta Thomas", "Di Martino Gabriele", "Gaggini Marco", "Kreling Fernando", "Marttila Luka", "Rohrs Erik",
-         "Szwarc Arthur"])
+    modena_starters = ["Sanguinetti Giovanni", "Anzani Simone", "Davyskiba Vlad", "De Cecco Luciano", "Buchegger Paul",
+                       "Rinaldi Tommaso", "Federici Filippo"]
+    trento_starters = ["Garcia Fernandez Gabi", "Kozamernik Jan", "Laurenzano Gabriele", "Lavia Daniele",
+                       "Michieletto Alessandro",
+                       "Resende Gualberto Flavio", "Sbertoli Riccardo"]
+    perugia_starters = ["Giannelli Simone", "Loser Agustin", "Ben Tara Wassim", "Russo Roberto", "Colaci Massimo",
+                        "Ishikawa Yuki", "Semeniuk Kamil"]
+    cisterna_starters = ["Baranowicz Michele", "Bayram Efe", "Faure Theo", "Nedeljkovic Aleksandar", "Pace Domenico",
+                         "Ramon Jordi", "Mazzone Daniele"]
 
-    # Addestrare il modello per predire il vincitore tra le due squadre
+    team_2.select_starters(perugia_starters)
+    team_1.select_starters(cisterna_starters)
+
+    # Addestra il modello per predire il vincitore tra le due squadre
     model = team_1.train_match_winner_model(team_2)
-
-    '''
-    # Prevedere il vincitore per una nuova partita
-    winner = model.predict([[...]])  # Fornisci qui i dati per una partita nuova
-    result = "Itas Trentino" if winner == 1 else "Mint Vero Volley Monza"
-    print(f"Predicted winner: {result}")
-    '''
