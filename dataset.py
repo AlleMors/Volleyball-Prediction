@@ -358,14 +358,12 @@ if __name__ == "__main__":
         ["Beretta Thomas", "Di Martino Gabriele", "Gaggini Marco", "Kreling Fernando", "Marttila Luka", "Rohrs Erik",
          "Szwarc Arthur"])
 
-    team_1.train_model(threshold=1, test_size=0.2)
-    team_2.train_model(threshold=1, test_size=0.2)
-
+    # Addestrare il modello per predire il vincitore tra le due squadre
     model = team_1.train_match_winner_model(team_2)
 
+    '''
     # Prevedere il vincitore per una nuova partita
     winner = model.predict([[...]])  # Fornisci qui i dati per una partita nuova
     result = "Itas Trentino" if winner == 1 else "Mint Vero Volley Monza"
     print(f"Predicted winner: {result}")
-
-    # optimize_model_parameters_parallel(team_1, team_1, [1, 10], [0.1, 0.9])
+    '''
