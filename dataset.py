@@ -2,18 +2,14 @@ import json
 
 import numpy as np
 import pandas as pd
-from IPython.core.macro import coding_declaration
-from holoviews.operation.datashader import aggregate
+
 from scipy.stats import randint
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from joblib import Parallel, delayed
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold, cross_val_score
+from sklearn.preprocessing import StandardScaler
 import warnings
 import logging
-import os
 
 # Configuration for warnings and logging
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -91,7 +87,8 @@ def aggregate_past_data(self, team_2):
     for team in [self, team_2]:
         # Inizializza un dizionario per sommare le statistiche per ogni giornata
         for giornata_index in range(len(team.starters[0].giornate)):
-            giornata_totals = {'set_giocati': 0, 'punti_totali': 0, 'punti_bp': 0, 'battuta_totale': 0, 'ace': 0,
+            giornata_totals = {'squadra': team.name, 'set_giocati': 0, 'punti_totali': 0, 'punti_bp': 0,
+                               'battuta_totale': 0, 'ace': 0,
                                'errori_battuta': 0, 'ace_per_set': 0, 'battuta_efficienza': 0,
                                'ricezione_totale': 0, 'errori_ricezione': 0, 'ricezione_negativa': 0,
                                'ricezione_perfetta': 0, 'ricezione_perfetta_perc': 0,
@@ -106,10 +103,12 @@ def aggregate_past_data(self, team_2):
 
                     # Somma le statistiche per quella giornata
                     for key in giornata_totals:
-                        giornata_totals[key] += giornata[key]
+                        if key != 'squadra':  # Skip the 'squadra' key
+                            giornata_totals[key] += giornata[key]
             # Calcola la media delle statistiche
             for key in giornata_totals:
-                giornata_totals[key] /= len(team.starters)  # Cambiato da 7 a len(team.starters)
+                if key != 'squadra':  # Skip the 'squadra' key
+                    giornata_totals[key] /= len(team.starters)  # Cambiato da 7 a len(team.starters)
 
             combined_data.append(giornata_totals)
 
@@ -162,17 +161,28 @@ class Team:
                 return player
         return None
 
-    def train_match_winner_model(self, team_2, test_size=0.2):
-
+    def train_match_winner_model(self, team_2, test_sizes=[0.1, 0.2, 0.3, 0.4, 0.5]):
         combined_data = aggregate_past_data(self, team_2)
 
         # Crea il DataFrame per i dati combinati
-        combined_data_df = pd.DataFrame(combined_data).apply(pd.to_numeric, errors='coerce')
-        combined_data_df.to_csv('combined_data.csv', index=False)
+        combined_data_df = pd.DataFrame(combined_data)
+
+        # Aggiungi una colonna per identificare le squadre
+        combined_data_df['is_team_1'] = combined_data_df['squadra'].apply(lambda x: 1 if x == self.name else 0)
+
+        # Rimuovi la colonna 'squadra' originale
+        combined_data_df = combined_data_df.drop(columns=['squadra'])
+
         # Gestisci i NaN
         from sklearn.impute import SimpleImputer
         imputer = SimpleImputer(strategy='mean')
-        combined_data_df = pd.DataFrame(imputer.fit_transform(combined_data_df), columns=combined_data_df.columns)
+        combined_data_df_imputed = pd.DataFrame(imputer.fit_transform(combined_data_df),
+                                                columns=combined_data_df.columns)
+
+        # Normalizzazione dei dati
+        scaler = StandardScaler()
+        combined_data_df_scaled = pd.DataFrame(scaler.fit_transform(combined_data_df_imputed),
+                                               columns=combined_data_df_imputed.columns)
 
         # Prepara l'output Y: 1 per vittoria di self, 0 per vittoria di team_2
         outcome_map = {'3-0': 1, '3-1': 1, '3-2': 1, '2-3': 0, '1-3': 0, '0-3': 0}
@@ -182,62 +192,57 @@ class Team:
         # Sommare le due serie
         combined_y = pd.concat([y, y_team_2], ignore_index=True)
 
-        print(combined_y)
-
-        # Dividi il dataset in training e test
-        X_train, X_test, y_train, y_test = train_test_split(combined_data_df, combined_y, test_size=test_size,
-                                                            random_state=42)
-
-        X_train.to_csv('X_train.csv', index=False)
-        X_test.to_csv('X_test.csv', index=False)
-        y_train.to_csv('y_train.csv', index=False)
-        y_test.to_csv('y_test.csv', index=False)
-
-        # Normalizzazione dei dati
-        scaler = StandardScaler()
-        X_train = pd.DataFrame(scaler.fit_transform(X_train), columns=X_train.columns)
-        X_test = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns)
-
-        # Definisci il range di iperparametri
-        param_dist = {
-            'n_estimators': randint(50, 200),  # Numero di alberi
-            'max_depth': [None, 10, 20, 30],  # Profondità degli alberi
-            'min_samples_split': randint(2, 10),  # Campioni minimi per nodo
-            'min_samples_leaf': randint(1, 5),  # Minimo di campioni per foglia
-            'bootstrap': [True, False]  # Metodo di campionamento
-        }
+        # Inizializza il RandomForestClassifier
         rf = RandomForestClassifier(random_state=42)
 
-        # Determine the number of splits dynamically
-        min_class_count = y_train.value_counts().min()
-        min_samples_threshold = 2
+        # Lista per salvare i risultati
+        best_accuracy = 0
+        best_test_size = None
 
-        if min_class_count < min_samples_threshold:
-            # If samples are insufficient, train the model directly on the entire dataset
-            rf.fit(X_train, y_train)
-            y_pred = rf.predict(X_test)
-            accuracy = accuracy_score(y_test, y_pred)
-            print(f"Accuracy without cross-validation: {accuracy * 100:.2f}%")
-            self.model = rf
-        else:
-            # If samples are sufficient, use cross-validation
-            n_splits = min(5, max(2, min_class_count))
-            stratified_kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
-            random_search = RandomizedSearchCV(estimator=rf, param_distributions=param_dist,
-                                               n_iter=100, cv=stratified_kfold, n_jobs=-1, verbose=2, random_state=42)
-            random_search.fit(X_train, y_train)
-            print("Migliori iperparametri trovati:", random_search.best_params_)
-            self.model = random_search.best_estimator_
-            y_pred = self.model.predict(X_test)
-            accuracy = accuracy_score(y_test, y_pred)
-            print(f"Accuracy with cross-validation: {accuracy * 100:.2f}%")
+        # Loop sulle diverse proporzioni test/train
+        for test_size in test_sizes:
+            # Dividi il dataset in training e test
+            X_train, X_test, y_train, y_test = train_test_split(combined_data_df_scaled, combined_y,
+                                                                test_size=test_size, random_state=42)
 
-        # Predire il vincitore per la nuova partita
-        winner = self.model.predict(combined_data_df)  # L'input deve essere 2D
-        result = self.name if winner[0] == 1 else team_2.name  # Corretto per ottenere il nome della squadra vincitrice
+            # Check se ci sono abbastanza campioni per fare cross-validation
+            min_class_count = y_train.value_counts().min()
+            min_samples_threshold = 2
+
+            if min_class_count < min_samples_threshold:
+                # Addestra direttamente il modello se i campioni sono insufficienti
+                rf.fit(X_train, y_train)
+                y_pred = rf.predict(X_test)
+                accuracy = accuracy_score(y_test, y_pred)
+            else:
+                # Usa StratifiedKFold per cross-validation
+                n_splits = min(5, max(2, min_class_count))
+                skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+                scores = cross_val_score(rf, X_train, y_train, cv=skf, scoring='accuracy')
+                accuracy = np.mean(scores)
+
+            print(f"Test size {test_size}, Accuracy: {accuracy:.2f}")
+
+            # Aggiorna la miglior proporzione
+            if accuracy > best_accuracy:
+                best_accuracy = accuracy
+                best_test_size = test_size
+
+        print(f"La miglior proporzione test/train è {best_test_size} con un'accuratezza del {best_accuracy:.2f}")
+
+        # Dopo aver trovato la proporzione migliore, usa quella per addestrare il modello finale
+        X_train, X_test, y_train, y_test = train_test_split(combined_data_df_scaled, combined_y,
+                                                            test_size=best_test_size, random_state=42)
+        rf.fit(X_train, y_train)
+        y_pred = rf.predict(X_test)
+        final_accuracy = accuracy_score(y_test, y_pred)
+        print(f"Final accuracy con la miglior proporzione test/train: {final_accuracy:.2f}")
+
+        # Predici il vincitore per la nuova partita
+        winner = rf.predict(X_test)
+        result = self.name if winner[0] == 1 else team_2.name
         print(f"Predicted winner: {result}")
-
-        return self.model
+        return rf
 
 
 def convert_to_numeric(data):
@@ -283,8 +288,8 @@ if __name__ == "__main__":
                              'legavolley_scraper/legavolley_scraper/spiders/players_stats.json',
                              'legavolley_scraper/legavolley_scraper/spiders/results.json')
 
-    team_2 = next(team for team in team_objects if team.name == "Sir Susa Vim Perugia")
-    team_1 = next(team for team in team_objects if team.name == "Valsa Group Modena")
+    team_1 = next(team for team in team_objects if team.name == "Sir Susa Vim Perugia")
+    team_2 = next(team for team in team_objects if team.name == "Valsa Group Modena")
 
     modena_starters = ["Sanguinetti Giovanni", "Anzani Simone", "Davyskiba Vlad", "De Cecco Luciano", "Buchegger Paul",
                        "Rinaldi Tommaso", "Federici Filippo"]
@@ -296,8 +301,8 @@ if __name__ == "__main__":
     cisterna_starters = ["Baranowicz Michele", "Bayram Efe", "Faure Theo", "Nedeljkovic Aleksandar", "Pace Domenico",
                          "Ramon Jordi", "Mazzone Daniele"]
 
-    team_2.select_starters(perugia_starters)
-    team_1.select_starters(modena_starters)
+    team_1.select_starters(perugia_starters)
+    team_2.select_starters(modena_starters)
 
     # Addestra il modello per predire il vincitore tra le due squadre
     model = team_1.train_match_winner_model(team_2)
