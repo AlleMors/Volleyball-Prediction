@@ -1,3 +1,5 @@
+import os
+
 import scrapy
 from scrapy.exceptions import CloseSpider
 from tqdm import tqdm
@@ -17,6 +19,8 @@ class PlayersStatsSpider(scrapy.Spider):
         self.players_progress = None
 
     def start_requests(self):
+        if os.path.exists('players_stats.json'):
+            os.remove('players_stats.json')
         url = f'https://www.legavolley.it/statistiche/?TipoStat=2.2&Serie={self.serie}&AnnoInizio={self.anno_inizio}&Fase={self.fase}&Giornata={self.giornata}'
         yield scrapy.Request(url=url, callback=self.parse_teams)
 
@@ -46,7 +50,7 @@ class PlayersStatsSpider(scrapy.Spider):
         atleta_nome = response.xpath('//*[@id="divframe"]/form/div[1]/div[6]/div[2]/span/text()').get()
         atleta_code = response.meta['Atleta']
 
-        rows=response.xpath('/html/body/div[7]/div[2]/div/div/form/table[2]/tbody/tr')
+        rows = response.xpath('/html/body/div[7]/div[2]/div/div/form/table[2]/tbody/tr')
 
         giornate = []
 

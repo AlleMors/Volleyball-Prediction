@@ -1,3 +1,5 @@
+import os
+
 import scrapy
 from scrapy.exceptions import CloseSpider
 
@@ -14,6 +16,8 @@ class TeamStatsSpider(scrapy.Spider):
         self.giornata = giornata
 
     def start_requests(self):
+        if os.path.exists('teams_stats.json'):
+            os.remove('teams_stats.json')
         # Prima richiesta per ottenere i nomi delle squadre
         url = f'https://www.legavolley.it/statistiche/?TipoStat=1.1&Serie={self.serie}&AnnoInizio={self.anno_inizio}&Fase={self.fase}&Giornata={self.giornata}'
         yield scrapy.Request(url=url, callback=self.parse_players)

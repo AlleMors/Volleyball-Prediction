@@ -1,3 +1,5 @@
+import os
+
 import scrapy
 import json
 
@@ -11,6 +13,8 @@ class ResultsSpider(scrapy.Spider):
         self.giornate = []
 
     def start_requests(self):
+        if os.path.exists('results.json'):
+            os.remove('results.json')
         # Prima richiesta per ottenere i nomi delle squadre
         url = f'https://www.legavolley.it/risultati/?IdCampionato=947'
         yield scrapy.Request(url=url, callback=self.parse)
@@ -20,10 +24,13 @@ class ResultsSpider(scrapy.Spider):
         giornate = response.xpath('//*[@id="divframe"]/form/div/div[4]/div[2]/ul/li/@data-value').getall()
 
         # Cicla tra tutte le giornate e costruisce l'URL per ogni giornata
-        for fase in {1,2}: # Cicla tra le due fasi
+        processed_giornate = set()
+        for fase in [1, 2]:
             for giornata in giornate:
-                url = f'https://www.legavolley.it/risultati/?Anno=2024&IdCampionato=947&IdFase={fase}&IdGiornata={giornata}'
-                yield scrapy.Request(url, callback=self.parse_giornata)
+                if giornata not in processed_giornate:
+                    url = f'https://www.legavolley.it/risultati/?Anno=2024&IdCampionato=947&IdFase={fase}&IdGiornata={giornata}'
+                    yield scrapy.Request(url, callback=self.parse_giornata)
+                    processed_giornate.add(giornata)
 
     def parse_giornata(self, response):
         results = []
@@ -37,11 +44,12 @@ class ResultsSpider(scrapy.Spider):
             else:
                 res = None
 
-            result = {
-                'team': team,
-                'result': res
-            }
-            results.append(result)
+            if team:
+                result = {
+                    'team': team,
+                    'result': res
+                }
+                results.append(result)
 
         giornata = response.xpath('/html/body/div[7]/div[2]/div/div/form/div/div[4]/div[2]/span/text()').get()
 
@@ -64,12 +72,8 @@ class ResultsSpider(scrapy.Spider):
         self.giornate = [g for g in self.giornate if g and g['results']]
         self.giornate.sort(key=self.get_giornata_number)
 
-        # Rimuovi eventuali array vuoti alla fine della lista
-        while self.giornate and isinstance(self.giornate[-1], list) and not self.giornate[-1]:
-            self.giornate.pop()
-
         # Scriviamo tutti i risultati nel file JSON al termine dello spider
-        with open('results.json', 'w') as file:
+        with open('results.json', 'w', encoding='utf-8') as file:
             json.dump(self.giornate, file, indent=4)
 
     def get_giornata_number(self, giornata):

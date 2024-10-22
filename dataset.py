@@ -1,12 +1,10 @@
 import json
+from collections import Counter
 
 import numpy as np
 import pandas as pd
-
-from scipy.stats import randint
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold, cross_val_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import StandardScaler
 import warnings
 import logging
@@ -16,78 +14,79 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 logging.basicConfig(level=logging.INFO)
 
 
-class GiornataGiocatore:
+class PlayerMatchDay:
     def __init__(self, giornata_data):
-        self.giornata = pd.to_numeric(giornata_data['giornata'].replace(" ", "0"), errors='coerce')
-        self.set_giocati = pd.to_numeric(giornata_data['set_giocati'].replace(" ", "0"), errors='coerce')
-        self.punti_totali = pd.to_numeric(giornata_data['punti_totali'].replace(" ", "0"), errors='coerce')
-        self.punti_bp = pd.to_numeric(giornata_data['punti_bp'].replace(" ", "0"), errors='coerce')
-        self.battuta_totale = pd.to_numeric(giornata_data['battuta_totale'].replace(" ", "0"), errors='coerce')
+        self.matchday = pd.to_numeric(giornata_data['giornata'].replace(" ", "0"), errors='coerce')
+        self.played_sets = pd.to_numeric(giornata_data['set_giocati'].replace(" ", "0"), errors='coerce')
+        self.total_points = pd.to_numeric(giornata_data['punti_totali'].replace(" ", "0"), errors='coerce')
+        self.bp_points = pd.to_numeric(giornata_data['punti_bp'].replace(" ", "0"), errors='coerce')
+        self.total_serves = pd.to_numeric(giornata_data['battuta_totale'].replace(" ", "0"), errors='coerce')
         self.ace = pd.to_numeric(giornata_data['ace'].replace(" ", "0"), errors='coerce')
-        self.errori_battuta = pd.to_numeric(giornata_data['errori_battuta'].replace(" ", "0"), errors='coerce')
+        self.serve_errors = pd.to_numeric(giornata_data['errori_battuta'].replace(" ", "0"), errors='coerce')
         self.ace_per_set = pd.to_numeric(giornata_data['ace_per_set'].replace(" ", "0"), errors='coerce')
-        self.battuta_efficienza = pd.to_numeric(giornata_data['battuta_efficienza'].replace(" ", "0"), errors='coerce')
-        self.ricezione_totale = pd.to_numeric(giornata_data['ricezione_totale'].replace(" ", "0"), errors='coerce')
-        self.errori_ricezione = pd.to_numeric(giornata_data['errori_ricezione'].replace(" ", "0"), errors='coerce')
-        self.ricezione_negativa = pd.to_numeric(giornata_data['ricezione_negativa'].replace(" ", "0"), errors='coerce')
-        self.ricezione_perfetta = pd.to_numeric(giornata_data['ricezione_perfetta'].replace(" ", "0"), errors='coerce')
-        self.ricezione_perfetta_perc = pd.to_numeric(giornata_data['ricezione_perfetta_perc'].replace(" ", "0"),
-                                                     errors='coerce')
-        self.ricezione_efficienza = pd.to_numeric(giornata_data['ricezione_efficienza'].replace(" ", "0"),
-                                                  errors='coerce')
-        self.attacco_totale = pd.to_numeric(giornata_data['attacco_totale'].replace(" ", "0"), errors='coerce')
-        self.errori_attacco = pd.to_numeric(giornata_data['errori_attacco'].replace(" ", "0"), errors='coerce')
-        self.attacco_murati = pd.to_numeric(giornata_data['attacco_murati'].replace(" ", "0"), errors='coerce')
-        self.attacco_perfetti = pd.to_numeric(giornata_data['attacco_perfetti'].replace(" ", "0"), errors='coerce')
-        self.attacco_perfetti_perc = pd.to_numeric(giornata_data['attacco_perfetti_perc'].replace(" ", "0"),
-                                                   errors='coerce')
-        self.attacco_efficienza = pd.to_numeric(giornata_data['attacco_efficienza'].replace(" ", "0"), errors='coerce')
-        self.muro_perfetti = pd.to_numeric(giornata_data['muro_perfetti'].replace(" ", "0"), errors='coerce')
-        self.muro_per_set = pd.to_numeric(giornata_data['muro_per_set'].replace(" ", "0"), errors='coerce')
+        self.serve_eff = pd.to_numeric(giornata_data['battuta_efficienza'].replace(" ", "0"), errors='coerce')
+        self.total_reception = pd.to_numeric(giornata_data['ricezione_totale'].replace(" ", "0"), errors='coerce')
+        self.reception_err = pd.to_numeric(giornata_data['errori_ricezione'].replace(" ", "0"), errors='coerce')
+        self.reception_neg = pd.to_numeric(giornata_data['ricezione_negativa'].replace(" ", "0"), errors='coerce')
+        self.reception_prf = pd.to_numeric(giornata_data['ricezione_perfetta'].replace(" ", "0"), errors='coerce')
+        self.reception_prf_perc = pd.to_numeric(giornata_data['ricezione_perfetta_perc'].replace(" ", "0"),
+                                                errors='coerce')
+        self.reception_eff = pd.to_numeric(giornata_data['ricezione_efficienza'].replace(" ", "0"),
+                                           errors='coerce')
+        self.total_att = pd.to_numeric(giornata_data['attacco_totale'].replace(" ", "0"), errors='coerce')
+        self.attack_errors = pd.to_numeric(giornata_data['errori_attacco'].replace(" ", "0"), errors='coerce')
+        self.attack_blocked = pd.to_numeric(giornata_data['attacco_murati'].replace(" ", "0"), errors='coerce')
+        self.attack_prf = pd.to_numeric(giornata_data['attacco_perfetti'].replace(" ", "0"), errors='coerce')
+        self.attack_prf_perc = pd.to_numeric(giornata_data['attacco_perfetti_perc'].replace(" ", "0"),
+                                             errors='coerce')
+        self.attack_eff = pd.to_numeric(giornata_data['attacco_efficienza'].replace(" ", "0"), errors='coerce')
+        self.block_prf = pd.to_numeric(giornata_data['muro_perfetti'].replace(" ", "0"), errors='coerce')
+        self.block_per_set = pd.to_numeric(giornata_data['muro_per_set'].replace(" ", "0"), errors='coerce')
 
 
 class Player:
-    giornate = []
+    match_days = []
     totals = []
     averages = []
 
     def __init__(self, player_data):
-        self.nome = player_data['atleta']
-        self.partite_giocate = pd.to_numeric(player_data['partite_giocate'].replace(" ", "0"), errors='coerce')
-        self.set_giocati = pd.to_numeric(player_data['set_giocati'].replace(" ", "0"), errors='coerce')
-        self.punti_totali = pd.to_numeric(player_data['punti_totali'].replace(" ", "0"), errors='coerce')
-        self.punti_bp = pd.to_numeric(player_data['punti_bp'].replace(" ", "0"), errors='coerce')
-        self.battuta_totale = pd.to_numeric(player_data['battuta_totale'].replace(" ", "0"), errors='coerce')
+        self.name = player_data['atleta']
+        self.played_matches = pd.to_numeric(player_data['partite_giocate'].replace(" ", "0"), errors='coerce')
+        self.played_sets = pd.to_numeric(player_data['set_giocati'].replace(" ", "0"), errors='coerce')
+        self.total_points = pd.to_numeric(player_data['punti_totali'].replace(" ", "0"), errors='coerce')
+        self.bp_points = pd.to_numeric(player_data['punti_bp'].replace(" ", "0"), errors='coerce')
+        self.total_serves = pd.to_numeric(player_data['battuta_totale'].replace(" ", "0"), errors='coerce')
         self.ace = pd.to_numeric(player_data['ace'].replace(" ", "0"), errors='coerce')
-        self.errori_battuta = pd.to_numeric(player_data['errori_battuta'].replace(" ", "0"), errors='coerce')
+        self.serve_errors = pd.to_numeric(player_data['errori_battuta'].replace(" ", "0"), errors='coerce')
         self.ace_per_set = pd.to_numeric(player_data['ace_per_set'].replace(" ", "0"), errors='coerce')
-        self.battuta_efficienza = pd.to_numeric(player_data['battuta_efficienza'].replace(" ", "0"), errors='coerce')
-        self.ricezione_totale = pd.to_numeric(player_data['ricezione_totale'].replace(" ", "0"), errors='coerce')
-        self.errori_ricezione = pd.to_numeric(player_data['errori_ricezione'].replace(" ", "0"), errors='coerce')
-        self.ricezione_negativa = pd.to_numeric(player_data['ricezione_negativa'].replace(" ", "0"), errors='coerce')
-        self.ricezione_perfetta = pd.to_numeric(player_data['ricezione_perfetta'].replace(" ", "0"), errors='coerce')
-        self.ricezione_perfetta_perc = pd.to_numeric(player_data['ricezione_perfetta_perc'].replace(" ", "0"),
-                                                     errors='coerce')
-        self.ricezione_efficienza = pd.to_numeric(player_data['ricezione_efficienza'].replace(" ", "0"),
-                                                  errors='coerce')
-        self.attacco_totale = pd.to_numeric(player_data['attacco_totale'].replace(" ", "0"), errors='coerce')
-        self.errori_attacco = pd.to_numeric(player_data['errori_attacco'].replace(" ", "0"), errors='coerce')
-        self.attacco_murati = pd.to_numeric(player_data['attacco_murati'].replace(" ", "0"), errors='coerce')
-        self.attacco_perfetti = pd.to_numeric(player_data['attacco_perfetti'].replace(" ", "0"), errors='coerce')
-        self.attacco_perfetti_perc = pd.to_numeric(player_data['attacco_perfetti_perc'].replace(" ", "0"),
-                                                   errors='coerce')
-        self.attacco_efficienza = pd.to_numeric(player_data['attacco_efficienza'].replace(" ", "0"), errors='coerce')
-        self.muro_perfetti = pd.to_numeric(player_data['muro_perfetti'].replace(" ", "0"), errors='coerce')
-        self.muro_per_set = pd.to_numeric(player_data['muro_per_set'].replace(" ", "0"), errors='coerce')
+        self.serve_eff = pd.to_numeric(player_data['battuta_efficienza'].replace(" ", "0"), errors='coerce')
+        self.total_reception = pd.to_numeric(player_data['ricezione_totale'].replace(" ", "0"), errors='coerce')
+        self.reception_err = pd.to_numeric(player_data['errori_ricezione'].replace(" ", "0"), errors='coerce')
+        self.reception_neg = pd.to_numeric(player_data['ricezione_negativa'].replace(" ", "0"), errors='coerce')
+        self.reception_prf = pd.to_numeric(player_data['ricezione_perfetta'].replace(" ", "0"), errors='coerce')
+        self.reception_prf_perc = pd.to_numeric(player_data['ricezione_perfetta_perc'].replace(" ", "0"),
+                                                errors='coerce')
+        self.reception_eff = pd.to_numeric(player_data['ricezione_efficienza'].replace(" ", "0"),
+                                           errors='coerce')
+        self.total_att = pd.to_numeric(player_data['attacco_totale'].replace(" ", "0"), errors='coerce')
+        self.attack_err = pd.to_numeric(player_data['errori_attacco'].replace(" ", "0"), errors='coerce')
+        self.attack_blocked = pd.to_numeric(player_data['attacco_murati'].replace(" ", "0"), errors='coerce')
+        self.attack_prf = pd.to_numeric(player_data['attacco_perfetti'].replace(" ", "0"), errors='coerce')
+        self.attack_prf_perc = pd.to_numeric(player_data['attacco_perfetti_perc'].replace(" ", "0"),
+                                             errors='coerce')
+        self.attack_eff = pd.to_numeric(player_data['attacco_efficienza'].replace(" ", "0"), errors='coerce')
+        self.block_prf = pd.to_numeric(player_data['muro_perfetti'].replace(" ", "0"), errors='coerce')
+        self.block_per_set = pd.to_numeric(player_data['muro_per_set'].replace(" ", "0"), errors='coerce')
 
 
-def aggregate_past_data(self, team_2):
+def aggregate_past_data_symmetric(self, team_2):
     combined_data = []
-    # Aggrega le statistiche passate dei titolari di entrambe le squadre in una singola riga per partita
-    for team in [self, team_2]:
-        # Inizializza un dizionario per sommare le statistiche per ogni giornata
-        for giornata_index in range(len(team.starters[0].giornate)):
-            giornata_totals = {'squadra': team.name, 'set_giocati': 0, 'punti_totali': 0, 'punti_bp': 0,
+
+    # Iterate twice: once with the normal order, once with the reverse order
+    for team_a, team_b in [(self, team_2), (team_2, self)]:
+        # Aggregate the past statistics of the starters of both teams into a single row for each match
+        for matchday_index in range(len(team_a.starters[0].match_days)):
+            matchday_totals = {'squadra': team_a.name, 'set_giocati': 0, 'punti_totali': 0, 'punti_bp': 0,
                                'battuta_totale': 0, 'ace': 0,
                                'errori_battuta': 0, 'ace_per_set': 0, 'battuta_efficienza': 0,
                                'ricezione_totale': 0, 'errori_ricezione': 0, 'ricezione_negativa': 0,
@@ -96,21 +95,19 @@ def aggregate_past_data(self, team_2):
                                'attacco_murati': 0, 'attacco_perfetti': 0, 'attacco_perfetti_perc': 0,
                                'attacco_efficienza': 0, 'muro_perfetti': 0, 'muro_per_set': 0}
 
-            # Itera attraverso ogni giocatore per quella giornata
-            for player in team.starters:
-                if giornata_index < len(player.giornate):
-                    giornata = player.giornate[giornata_index]
+            # Sum the statistics for that matchday
+            for player in team_a.starters:
+                if matchday_index < len(player.match_days):
+                    giornata = player.match_days[matchday_index]
+                    for key in matchday_totals:
+                        if key != 'squadra':
+                            matchday_totals[key] += giornata[key]
+            # Calculate the average statistics
+            for key in matchday_totals:
+                if key != 'squadra':
+                    matchday_totals[key] /= len(team_a.starters)
 
-                    # Somma le statistiche per quella giornata
-                    for key in giornata_totals:
-                        if key != 'squadra':  # Skip the 'squadra' key
-                            giornata_totals[key] += giornata[key]
-            # Calcola la media delle statistiche
-            for key in giornata_totals:
-                if key != 'squadra':  # Skip the 'squadra' key
-                    giornata_totals[key] /= len(team.starters)  # Cambiato da 7 a len(team.starters)
-
-            combined_data.append(giornata_totals)
+            combined_data.append(matchday_totals)
 
     return combined_data
 
@@ -129,14 +126,14 @@ class Team:
         self.totals = convert_to_numeric(team_data['totali'])
 
     def select_starters(self, starter_names):
-        self.starters = [player for player in self.players if player.nome in starter_names]
+        self.starters = [player for player in self.players if player.name in starter_names]
 
         if len(self.starters) != 7:
-            raise ValueError("Devi selezionare esattamente 7 titolari.")
+            raise ValueError("The number of starters must be 7")
 
     def load_results(self, results_data):
-        for giornata in results_data:
-            for result in giornata['results']:
+        for matchday in results_data:
+            for result in matchday['results']:
                 if result['team'] == self.name:
                     self.results.append(result['result'])
 
@@ -157,92 +154,67 @@ class Team:
 
     def find_player_by_name(self, name):
         for player in self.players:
-            if player.nome == name:
+            if player.name == name:
                 return player
         return None
 
-    def train_match_winner_model(self, team_2, test_sizes=[0.1, 0.2, 0.3, 0.4, 0.5]):
-        combined_data = aggregate_past_data(self, team_2)
+    def train_and_predict_match_winner_symmetric(self, team_2):
+        combined_data = aggregate_past_data_symmetric(self, team_2)
 
-        # Crea il DataFrame per i dati combinati
+        # Create a DataFrame for the combined data
         combined_data_df = pd.DataFrame(combined_data)
 
-        # Aggiungi una colonna per identificare le squadre
+        # Add a column to identify the teams
         combined_data_df['is_team_1'] = combined_data_df['squadra'].apply(lambda x: 1 if x == self.name else 0)
 
-        # Rimuovi la colonna 'squadra' originale
+        # Remove the 'squadra' column
         combined_data_df = combined_data_df.drop(columns=['squadra'])
 
-        # Gestisci i NaN
+        # Handle NaN values
         from sklearn.impute import SimpleImputer
         imputer = SimpleImputer(strategy='mean')
         combined_data_df_imputed = pd.DataFrame(imputer.fit_transform(combined_data_df),
                                                 columns=combined_data_df.columns)
 
-        # Normalizzazione dei dati
+        # Normalize the data
         scaler = StandardScaler()
         combined_data_df_scaled = pd.DataFrame(scaler.fit_transform(combined_data_df_imputed),
                                                columns=combined_data_df_imputed.columns)
 
-        # Prepara l'output Y: 1 per vittoria di self, 0 per vittoria di team_2
+        # Prepare the output Y: 1 for a win by self, 0 for a win by team_2
         outcome_map = {'3-0': 1, '3-1': 1, '3-2': 1, '2-3': 0, '1-3': 0, '0-3': 0}
         y = pd.Series([outcome_map[result] for result in self.results], name='Match_Outcome')
         y_team_2 = pd.Series([outcome_map[result] for result in team_2.results], name='Match_Outcome')
 
-        # Sommare le due serie
+        # Combine the two series
         combined_y = pd.concat([y, y_team_2], ignore_index=True)
 
-        # Inizializza il RandomForestClassifier
+        # Duplicate the data to create symmetry (swap team_1 and team_2)
+        combined_y = pd.concat([combined_y, combined_y], ignore_index=True)
+        combined_data_df_scaled = pd.concat([combined_data_df_scaled, combined_data_df_scaled], ignore_index=True)
+
+        # Get dynamic n_splits
+        n_splits = get_dynamic_n_splits(combined_y)
+
+        # Initialize RandomForestClassifier
         rf = RandomForestClassifier(random_state=42)
 
-        # Lista per salvare i risultati
-        best_accuracy = 0
-        best_test_size = None
+        # Use StratifiedKFold for cross-validation
+        skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+        scores = cross_val_score(rf, combined_data_df_scaled, combined_y, cv=skf, scoring='accuracy')
 
-        # Loop sulle diverse proporzioni test/train
-        for test_size in test_sizes:
-            # Dividi il dataset in training e test
-            X_train, X_test, y_train, y_test = train_test_split(combined_data_df_scaled, combined_y,
-                                                                test_size=test_size, random_state=42)
+        # Calculate the average accuracy
+        accuracy = np.mean(scores)
+        print(f"Mean accuracy with {n_splits}-fold cross-validation: {accuracy:.2f}")
 
-            # Check se ci sono abbastanza campioni per fare cross-validation
-            min_class_count = y_train.value_counts().min()
-            min_samples_threshold = 2
+        # Train the final model on all the data
+        rf.fit(combined_data_df_scaled, combined_y)
 
-            if min_class_count < min_samples_threshold:
-                # Addestra direttamente il modello se i campioni sono insufficienti
-                rf.fit(X_train, y_train)
-                y_pred = rf.predict(X_test)
-                accuracy = accuracy_score(y_test, y_pred)
-            else:
-                # Usa StratifiedKFold per cross-validation
-                n_splits = min(5, max(2, min_class_count))
-                skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
-                scores = cross_val_score(rf, X_train, y_train, cv=skf, scoring='accuracy')
-                accuracy = np.mean(scores)
+        # Predict the result for the match between team_1 and team_2
+        prediction = rf.predict(combined_data_df_scaled)
+        prediction_result = 'win' if prediction[0] == 1 else 'lose'
 
-            print(f"Test size {test_size}, Accuracy: {accuracy:.2f}")
-
-            # Aggiorna la miglior proporzione
-            if accuracy > best_accuracy:
-                best_accuracy = accuracy
-                best_test_size = test_size
-
-        print(f"La miglior proporzione test/train è {best_test_size} con un'accuratezza del {best_accuracy:.2f}")
-
-        # Dopo aver trovato la proporzione migliore, usa quella per addestrare il modello finale
-        X_train, X_test, y_train, y_test = train_test_split(combined_data_df_scaled, combined_y,
-                                                            test_size=best_test_size, random_state=42)
-        rf.fit(X_train, y_train)
-        y_pred = rf.predict(X_test)
-        final_accuracy = accuracy_score(y_test, y_pred)
-        print(f"Final accuracy con la miglior proporzione test/train: {final_accuracy:.2f}")
-
-        # Predici il vincitore per la nuova partita
-        winner = rf.predict(X_test)
-        result = self.name if winner[0] == 1 else team_2.name
-        print(f"Predicted winner: {result}")
-        return rf
+        return rf, prediction_result
 
 
 def convert_to_numeric(data):
@@ -272,7 +244,7 @@ def load_json(teams_file_path, players_file_path, results_file_path):
         for team in teams:
             found_player = team.find_player_by_name(data['atleta'])
             if found_player:
-                found_player.giornate = data['giornate']
+                found_player.match_days = data['giornate']
                 found_player.totals = data['totals']
                 found_player.averages = data['averages']
 
@@ -283,13 +255,25 @@ def load_json(teams_file_path, players_file_path, results_file_path):
     return teams
 
 
+def get_dynamic_n_splits(y):
+    class_counts = Counter(y)
+    min_class_count = min(class_counts.values())
+    return min_class_count
+
+
 if __name__ == "__main__":
     team_objects = load_json('legavolley_scraper/legavolley_scraper/spiders/teams_stats.json',
                              'legavolley_scraper/legavolley_scraper/spiders/players_stats.json',
                              'legavolley_scraper/legavolley_scraper/spiders/results.json')
 
-    team_1 = next(team for team in team_objects if team.name == "Sir Susa Vim Perugia")
-    team_2 = next(team for team in team_objects if team.name == "Valsa Group Modena")
+    team_names_map = {"trento": "Itas Trentino", "modena": "Valsa Group Modena", "perugia": "Sir Susa Vim Perugia",
+                      "cisterna": "Cisterna Volley", "grottazzolina": "Yuasa Battery Grottazzolina",
+                      "lube": "Cucine Lube Civitanova", "milano": "Allianz Milano", "monza": "Mint Vero Volley Monza",
+                      "padova": "Sonepar Padova", "piacenza": "Gas Sales Bluenergy Piacenza",
+                      "taranto": "Gioiella Prisma Taranto", "verona": "Rana Verona"}
+
+    team_1 = next(team for team in team_objects if team.name == team_names_map["trento"])
+    team_2 = next(team for team in team_objects if team.name == team_names_map["modena"])
 
     modena_starters = ["Sanguinetti Giovanni", "Anzani Simone", "Davyskiba Vlad", "De Cecco Luciano", "Buchegger Paul",
                        "Rinaldi Tommaso", "Federici Filippo"]
@@ -300,9 +284,28 @@ if __name__ == "__main__":
                         "Ishikawa Yuki", "Semeniuk Kamil"]
     cisterna_starters = ["Baranowicz Michele", "Bayram Efe", "Faure Theo", "Nedeljkovic Aleksandar", "Pace Domenico",
                          "Ramon Jordi", "Mazzone Daniele"]
+    grottazzolina_starters = ["Antonov Oleg", "Demyanenko Danny", "Marchisio Andrea", "Mattei Andrea", "Tatarov Georgi",
+                              "Zhukouski Tsimafei", "Marchiani Manuele"]
+    lube_starters = ["Balaso Fabio", "Boninfante Mattia", "Bottolo Mattia", "Chinenyeze Barthelemy",
+                     "Gargiulo Giovanni Maria", "Lagumdzija Adis", "Loeppky Eric"]
+    milano_starters = ["Caneschi Edoardo", "Catania Damiano", "Kaziyski Matey", "Louati Yacine", "Porro Paolo",
+                       "Reggers Ferre", "Schnitzer Jordan"]
+    monza_starters = ["Beretta Thomas", "Di Martino Gabriele", "Gaggini Marco", "Kreling Fernando", "Marttila Luka",
+                      "Rohrs Erik", "Szwarc Arthur"]
+    padova_starters = ["Crosato Federico", "Diez Benjamin", "Falaschi Marco", "Masulovic Veljko", "Plak Fabian",
+                       "Porro Luca", "Sedlacek Marko"]
+    piacenza_starters = ["Scanferla Leonardo", "Brizard Antoine", "Galassi Gianluca", "Kovacevic Uros", "Maar Stephen",
+                         "Simon Robertlandy", "Romanò Yuri"]
+    taranto_starters = ["Alonso Roamy", "D'Heer Wout", "Lanza Filippo", "Hofer Brodie", "Rizzo Marco", "Zimmermann Jan",
+                        "Gironi Fabrizio"]
+    verona_starters = ["Dzavoronok Donovan", "Abaev Konstantin", "D'Amico Francesco", "Vitelli Marco", "Keita Noumory",
+                       "Sani Francesco", "Cortesia Lorenzo"]
 
-    team_1.select_starters(perugia_starters)
+    team_1.select_starters(trento_starters)
     team_2.select_starters(modena_starters)
 
-    # Addestra il modello per predire il vincitore tra le due squadre
-    model = team_1.train_match_winner_model(team_2)
+    # Trains the model and predicts the winner of the match between team_1 and team_2
+    model, prediction_result = team_1.train_and_predict_match_winner_symmetric(team_2)
+
+    # Print the prediction
+    print(f"Prediction for the match between {team_1.name} and {team_2.name}: {team_1.name} will {prediction_result}")
