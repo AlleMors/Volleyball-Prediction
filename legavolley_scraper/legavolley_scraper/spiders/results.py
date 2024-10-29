@@ -3,6 +3,8 @@ import os
 import scrapy
 import json
 
+from tqdm import tqdm_pandas, tqdm
+
 
 class ResultsSpider(scrapy.Spider):
     name = "results"
@@ -10,6 +12,7 @@ class ResultsSpider(scrapy.Spider):
     start_urls = ["https://legavolley.it"]
 
     def __init__(self):
+        self.giornate_progress = None
         self.giornate = []
 
     def start_requests(self):
@@ -25,6 +28,7 @@ class ResultsSpider(scrapy.Spider):
 
         # Cicla tra tutte le giornate e costruisce l'URL per ogni giornata
         processed_giornate = set()
+        self.giornate_progress=tqdm(total=len(giornate), desc="Processing giornate")
         for fase in [1, 2]:
             for giornata in giornate:
                 if giornata not in processed_giornate:

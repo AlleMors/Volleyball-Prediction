@@ -212,6 +212,7 @@ class Team:
 
         # Predict the result for the match between team_1 and team_2
         prediction = rf.predict(combined_data_df_scaled)
+        print(prediction)
         prediction_result = 'win' if prediction[0] == 1 else 'lose'
 
         return rf, prediction_result
@@ -272,7 +273,7 @@ if __name__ == "__main__":
                       "padova": "Sonepar Padova", "piacenza": "Gas Sales Bluenergy Piacenza",
                       "taranto": "Gioiella Prisma Taranto", "verona": "Rana Verona"}
 
-    team_1 = next(team for team in team_objects if team.name == team_names_map["trento"])
+    team_1 = next(team for team in team_objects if team.name == team_names_map["monza"])
     team_2 = next(team for team in team_objects if team.name == team_names_map["modena"])
 
     modena_starters = ["Sanguinetti Giovanni", "Anzani Simone", "Davyskiba Vlad", "De Cecco Luciano", "Buchegger Paul",
@@ -301,8 +302,15 @@ if __name__ == "__main__":
     verona_starters = ["Dzavoronok Donovan", "Abaev Konstantin", "D'Amico Francesco", "Vitelli Marco", "Keita Noumory",
                        "Sani Francesco", "Cortesia Lorenzo"]
 
-    team_1.select_starters(trento_starters)
-    team_2.select_starters(modena_starters)
+    team_starters = {"Itas Trentino": trento_starters, "Valsa Group Modena": modena_starters,
+                     "Sir Susa Vim Perugia": perugia_starters, "Cisterna Volley": cisterna_starters,
+                     "Yuasa Battery Grottazzolina": grottazzolina_starters, "Cucine Lube Civitanova": lube_starters,
+                     "Allianz Milano": milano_starters, "Mint Vero Volley Monza": monza_starters,
+                     "Sonepar Padova": padova_starters, "Gas Sales Bluenergy Piacenza": piacenza_starters,
+                     "Gioiella Prisma Taranto": taranto_starters, "Rana Verona": verona_starters}
+
+    team_1.select_starters(team_starters[team_1.name])
+    team_2.select_starters(team_starters[team_2.name])
 
     # Trains the model and predicts the winner of the match between team_1 and team_2
     model, prediction_result = team_1.train_and_predict_match_winner_symmetric(team_2)

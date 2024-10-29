@@ -210,6 +210,59 @@
                 "result": "3-2"
             }
         ]
+    },
+    {
+        "giornata": "5 Giornata (27/10/2024)",
+        "results": [
+            {
+                "team": "Itas Trentino",
+                "result": "1-3"
+            },
+            {
+                "team": "Sir Susa Vim Perugia",
+                "result": "3-1"
+            },
+            {
+                "team": "Cucine Lube Civitanova",
+                "result": "3-0"
+            },
+            {
+                "team": "Cisterna Volley",
+                "result": "0-3"
+            },
+            {
+                "team": "Allianz Milano",
+                "result": "1-3"
+            },
+            {
+                "team": "Rana Verona",
+                "result": "3-1"
+            },
+            {
+                "team": "Valsa Group Modena",
+                "result": "3-0"
+            },
+            {
+                "team": "Mint Vero Volley Monza",
+                "result": "0-3"
+            },
+            {
+                "team": "Sonepar Padova",
+                "result": "2-3"
+            },
+            {
+                "team": "Gas Sales Bluenergy Piacenza",
+                "result": "3-2"
+            },
+            {
+                "team": "Gioiella Prisma Taranto",
+                "result": "3-1"
+            },
+            {
+                "team": "Yuasa Battery Grottazzolina",
+                "result": "1-3"
+            }
+        ]
     }
 ][
 

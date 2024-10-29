@@ -2,6 +2,7 @@ import os
 
 import scrapy
 from scrapy.exceptions import CloseSpider
+from tqdm import tqdm
 
 
 class TeamStatsSpider(scrapy.Spider):
@@ -10,6 +11,7 @@ class TeamStatsSpider(scrapy.Spider):
 
     def __init__(self, serie='1', anno_inizio='2024', fase='1', giornata='0', *args, **kwargs):
         super(TeamStatsSpider, self).__init__(*args, **kwargs)
+        self.team_progress = None
         self.serie = serie
         self.anno_inizio = anno_inizio
         self.fase = fase
@@ -32,6 +34,8 @@ class TeamStatsSpider(scrapy.Spider):
         if not teams:
             self.logger.error("Nessuna squadra trovata. Controlla l'XPath.")
             raise CloseSpider("Nessuna squadra trovata")
+        
+        self.team_progress = tqdm(total=len(teams), desc="Processing teams")
 
         # Genera le richieste per ciascuna squadra
         for team in teams:
