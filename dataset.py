@@ -1,8 +1,9 @@
 import json
 from collections import Counter
-
+from fpdf import FPDF
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import StandardScaler
@@ -160,62 +161,66 @@ class Team:
 
     def train_and_predict_match_winner_symmetric(self, team_2):
         combined_data = aggregate_past_data_symmetric(self, team_2)
-
-        # Create a DataFrame for the combined data
         combined_data_df = pd.DataFrame(combined_data)
-
-        # Add a column to identify the teams
         combined_data_df['is_team_1'] = combined_data_df['squadra'].apply(lambda x: 1 if x == self.name else 0)
-
-        # Remove the 'squadra' column
         combined_data_df = combined_data_df.drop(columns=['squadra'])
 
-        # Handle NaN values
         from sklearn.impute import SimpleImputer
         imputer = SimpleImputer(strategy='mean')
         combined_data_df_imputed = pd.DataFrame(imputer.fit_transform(combined_data_df),
                                                 columns=combined_data_df.columns)
 
-        # Normalize the data
         scaler = StandardScaler()
         combined_data_df_scaled = pd.DataFrame(scaler.fit_transform(combined_data_df_imputed),
                                                columns=combined_data_df_imputed.columns)
 
-        # Prepare the output Y: 1 for a win by self, 0 for a win by team_2
         outcome_map = {'3-0': 1, '3-1': 1, '3-2': 1, '2-3': 0, '1-3': 0, '0-3': 0}
         y = pd.Series([outcome_map[result] for result in self.results], name='Match_Outcome')
         y_team_2 = pd.Series([outcome_map[result] for result in team_2.results], name='Match_Outcome')
 
-        # Combine the two series
         combined_y = pd.concat([y, y_team_2], ignore_index=True)
-
-        # Duplicate the data to create symmetry (swap team_1 and team_2)
         combined_y = pd.concat([combined_y, combined_y], ignore_index=True)
         combined_data_df_scaled = pd.concat([combined_data_df_scaled, combined_data_df_scaled], ignore_index=True)
 
-        # Get dynamic n_splits
         n_splits = get_dynamic_n_splits(combined_y)
-
-        # Initialize RandomForestClassifier
         rf = RandomForestClassifier(random_state=42)
 
-        # Use StratifiedKFold for cross-validation
         skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
         scores = cross_val_score(rf, combined_data_df_scaled, combined_y, cv=skf, scoring='accuracy')
-
-        # Calculate the average accuracy
         accuracy = np.mean(scores)
         print(f"Mean accuracy with {n_splits}-fold cross-validation: {accuracy:.2f}")
 
-        # Train the final model on all the data
         rf.fit(combined_data_df_scaled, combined_y)
-
-        # Predict the result for the match between team_1 and team_2
         prediction = rf.predict(combined_data_df_scaled)
-        print(prediction)
         prediction_result = 'win' if prediction[0] == 1 else 'lose'
 
+        # Chiamata della funzione per stampare l'importanza delle feature
+        print_feature_importance(rf, combined_data_df_imputed.columns)
+
         return rf, prediction_result
+
+def print_feature_importance(model, feature_names):
+    # Estrazione e visualizzazione dell'importanza delle feature
+    importances = model.feature_importances_
+    indices = np.argsort(importances)[::-1]
+
+    plt.figure(figsize=(10, 8))
+    plt.title("Feature Importance")
+    plt.bar(range(len(feature_names)), importances[indices], align="center")
+    plt.xticks(range(len(feature_names)), [feature_names[i] for i in indices], rotation=90)
+    plt.tight_layout()
+    plt.savefig("feature_importance.png")
+    plt.show()
+
+    # Creazione del documento PDF
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Feature Importance Report", ln=True, align="C")
+
+    pdf.image("feature_importance.png", x=10, y=30, w=180)
+    pdf.output("Feature_Importance_Report.pdf")
+    print("Il documento PDF con l'importanza delle feature è stato creato con successo!")
 
 
 def convert_to_numeric(data):
