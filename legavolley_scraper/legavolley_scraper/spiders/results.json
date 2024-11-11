@@ -263,7 +263,164 @@
                 "result": "1-3"
             }
         ]
+    },
+    {
+        "giornata": "6 Giornata (3/11/2024)",
+        "results": [
+            {
+                "team": "Sir Susa Vim Perugia",
+                "result": "3-2"
+            },
+            {
+                "team": "Cucine Lube Civitanova",
+                "result": "2-3"
+            },
+            {
+                "team": "Gas Sales Bluenergy Piacenza",
+                "result": "3-0"
+            },
+            {
+                "team": "Allianz Milano",
+                "result": "0-3"
+            },
+            {
+                "team": "Mint Vero Volley Monza",
+                "result": "3-2"
+            },
+            {
+                "team": "Gioiella Prisma Taranto",
+                "result": "2-3"
+            },
+            {
+                "team": "Rana Verona",
+                "result": "2-3"
+            },
+            {
+                "team": "Valsa Group Modena",
+                "result": "3-2"
+            },
+            {
+                "team": "Cisterna Volley",
+                "result": "3-1"
+            },
+            {
+                "team": "Sonepar Padova",
+                "result": "1-3"
+            },
+            {
+                "team": "Yuasa Battery Grottazzolina",
+                "result": "1-3"
+            },
+            {
+                "team": "Itas Trentino",
+                "result": "3-1"
+            }
+        ]
+    },
+    {
+        "giornata": "7 Giornata (10/11/2024)",
+        "results": [
+            {
+                "team": "Itas Trentino",
+                "result": "3-1"
+            },
+            {
+                "team": "Rana Verona",
+                "result": "1-3"
+            },
+            {
+                "team": "Cucine Lube Civitanova",
+                "result": "3-0"
+            },
+            {
+                "team": "Gas Sales Bluenergy Piacenza",
+                "result": "0-3"
+            },
+            {
+                "team": "Allianz Milano",
+                "result": "3-1"
+            },
+            {
+                "team": "Yuasa Battery Grottazzolina",
+                "result": "1-3"
+            },
+            {
+                "team": "Valsa Group Modena",
+                "result": "2-3"
+            },
+            {
+                "team": "Cisterna Volley",
+                "result": "3-2"
+            },
+            {
+                "team": "Sonepar Padova",
+                "result": "3-0"
+            },
+            {
+                "team": "Mint Vero Volley Monza",
+                "result": "0-3"
+            },
+            {
+                "team": "Gioiella Prisma Taranto",
+                "result": "0-3"
+            },
+            {
+                "team": "Sir Susa Vim Perugia",
+                "result": "3-0"
+            }
+        ]
+    },
+    {
+        "giornata": "10 Giornata (1/12/2024)",
+        "results": [
+            {
+                "team": "Gas Sales Bluenergy Piacenza",
+                "result": "0-0"
+            },
+            {
+                "team": "Yuasa Battery Grottazzolina",
+                "result": "0-0"
+            },
+            {
+                "team": "Cucine Lube Civitanova",
+                "result": "0-0"
+            },
+            {
+                "team": "Itas Trentino",
+                "result": "0-0"
+            },
+            {
+                "team": "Mint Vero Volley Monza",
+                "result": "0-0"
+            },
+            {
+                "team": "Sir Susa Vim Perugia",
+                "result": "0-0"
+            },
+            {
+                "team": "Allianz Milano",
+                "result": "3-1"
+            },
+            {
+                "team": "Cisterna Volley",
+                "result": "1-3"
+            },
+            {
+                "team": "Sonepar Padova",
+                "result": "0-0"
+            },
+            {
+                "team": "Rana Verona",
+                "result": "0-0"
+            },
+            {
+                "team": "Gioiella Prisma Taranto",
+                "result": "0-0"
+            },
+            {
+                "team": "Valsa Group Modena",
+                "result": "0-0"
+            }
+        ]
     }
-][
-
 ]

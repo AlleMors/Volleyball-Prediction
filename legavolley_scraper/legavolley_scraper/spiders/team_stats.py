@@ -1,5 +1,4 @@
 import os
-
 import scrapy
 from scrapy.exceptions import CloseSpider
 from tqdm import tqdm
@@ -34,7 +33,7 @@ class TeamStatsSpider(scrapy.Spider):
         if not teams:
             self.logger.error("Nessuna squadra trovata. Controlla l'XPath.")
             raise CloseSpider("Nessuna squadra trovata")
-        
+
         self.team_progress = tqdm(total=len(teams), desc="Processing teams")
 
         # Genera le richieste per ciascuna squadra
@@ -43,9 +42,14 @@ class TeamStatsSpider(scrapy.Spider):
             yield scrapy.Request(url=url, callback=self.parse, meta={'squadra': team})
 
     def parse(self, response):
+        # Aggiorna tqdm per ciascun team processato
+        if self.team_progress:
+            self.team_progress.update(1)
+
         self.logger.info(f"Status code: {response.status}")
 
-        squadra_nome=response.xpath('/html/body/div[7]/div[2]/div/div/form/table[1]/tbody/tr[3]/td/font/b/text()').get()
+        squadra_nome = response.xpath(
+            '/html/body/div[7]/div[2]/div/div/form/table[1]/tbody/tr[3]/td/font/b/text()').get()
         squadra_code = response.meta['squadra']
         table = response.xpath('//table[@id="Statistica"]//tr')
 
@@ -90,7 +94,6 @@ class TeamStatsSpider(scrapy.Spider):
                     players.append(player)
 
         # Gestisci l'ultima riga dei totali di squadra, se presente
-
         totals_row = response.xpath('/html/body/div[7]/div[2]/div/div/form/table[2]/tbody/tr[12]')
         totals = {
             'partite_giocate': totals_row.xpath('td[1]/text()').get(default=''),
@@ -124,3 +127,8 @@ class TeamStatsSpider(scrapy.Spider):
             'players': players,
             'totali': totals
         }
+
+    def closed(self, reason):
+        # Chiudi la barra di avanzamento alla fine
+        if self.team_progress:
+            self.team_progress.close()

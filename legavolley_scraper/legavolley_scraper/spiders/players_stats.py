@@ -1,9 +1,7 @@
 import os
-
 import scrapy
 from scrapy.exceptions import CloseSpider
 from tqdm import tqdm
-
 
 class PlayersStatsSpider(scrapy.Spider):
     name = 'players_stats'
@@ -35,7 +33,7 @@ class PlayersStatsSpider(scrapy.Spider):
             raise CloseSpider("Nessuna squadra trovata")
 
         self.player_list_loaded = True
-        self.players_progress = tqdm(total=len(players), desc="Processing players")
+        self.players_progress = tqdm(total=len(players), desc="Processing players", dynamic_ncols=True)
 
         for player in players:
             url = f'https://www.legavolley.it/statistiche/?TipoStat=2.2&Serie={self.serie}&AnnoInizio={self.anno_inizio}&Fase={self.fase}&Giornata={self.giornata}&Atleta={player}'

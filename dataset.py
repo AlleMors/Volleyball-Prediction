@@ -5,7 +5,8 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import StratifiedKFold, cross_val_score, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 import warnings
 import logging
@@ -83,31 +84,27 @@ class Player:
 def aggregate_past_data_symmetric(self, team_2):
     combined_data = []
 
-    # Iterate twice: once with the normal order, once with the reverse order
     for team_a, team_b in [(self, team_2), (team_2, self)]:
-        # Aggregate the past statistics of the starters of both teams into a single row for each match
         for matchday_index in range(len(team_a.starters[0].match_days)):
-            matchday_totals = {'squadra': team_a.name, 'set_giocati': 0, 'punti_totali': 0, 'punti_bp': 0,
-                               'battuta_totale': 0, 'ace': 0,
-                               'errori_battuta': 0, 'ace_per_set': 0, 'battuta_efficienza': 0,
-                               'ricezione_totale': 0, 'errori_ricezione': 0, 'ricezione_negativa': 0,
-                               'ricezione_perfetta': 0, 'ricezione_perfetta_perc': 0,
-                               'ricezione_efficienza': 0, 'attacco_totale': 0, 'errori_attacco': 0,
-                               'attacco_murati': 0, 'attacco_perfetti': 0, 'attacco_perfetti_perc': 0,
-                               'attacco_efficienza': 0, 'muro_perfetti': 0, 'muro_per_set': 0}
+            matchday_totals = {key: 0 for key in ['set_giocati', 'punti_totali', 'punti_bp', 'battuta_totale',
+                                                  'ace', 'errori_battuta', 'ricezione_totale', 'errori_ricezione',
+                                                  'ricezione_negativa',
+                                                  'ricezione_efficienza', 'attacco_totale', 'errori_attacco',
+                                                  'attacco_murati', 'attacco_efficienza']}
+            player_count = 0
 
-            # Sum the statistics for that matchday
             for player in team_a.starters:
                 if matchday_index < len(player.match_days):
                     giornata = player.match_days[matchday_index]
                     for key in matchday_totals:
-                        if key != 'squadra':
-                            matchday_totals[key] += giornata[key]
-            # Calculate the average statistics
-            for key in matchday_totals:
-                if key != 'squadra':
-                    matchday_totals[key] /= len(team_a.starters)
+                        matchday_totals[key] += giornata[key]
+                    player_count += 1
 
+            if player_count > 0:
+                for key in matchday_totals:
+                    matchday_totals[key] /= player_count
+
+            matchday_totals['squadra'] = team_a.name
             combined_data.append(matchday_totals)
 
     return combined_data
@@ -159,45 +156,107 @@ class Team:
                 return player
         return None
 
+    from sklearn.model_selection import GridSearchCV
+
+    def calculate_home_advantage(self, team_2):
+        """
+        Calcola il vantaggio casalingo come la differenza tra la percentuale di vittorie casalinghe
+        della squadra di casa (self) e la percentuale di vittorie in trasferta dell'avversario (team_2).
+        """
+        home_performance = self.results.count('win') / len(self.results)
+        away_performance = team_2.results.count('win') / len(team_2.results)
+
+        # Il vantaggio casalingo è la differenza tra le percentuali di vittoria
+        return home_performance - away_performance
+
     def train_and_predict_match_winner_symmetric(self, team_2):
+        best_accuracy = 0
+        best_advantage = 0
+
+        # Calcola il vantaggio casalingo dinamico
+        home_advantage = self.calculate_home_advantage(team_2)
+
         combined_data = aggregate_past_data_symmetric(self, team_2)
         combined_data_df = pd.DataFrame(combined_data)
+
+        # Indica se la squadra 1 è la squadra di casa
         combined_data_df['is_team_1'] = combined_data_df['squadra'].apply(lambda x: 1 if x == self.name else 0)
+
+        # Rimuove la colonna 'squadra'
         combined_data_df = combined_data_df.drop(columns=['squadra'])
 
-        from sklearn.impute import SimpleImputer
+        # Applica il vantaggio casalingo calcolato dinamicamente
+        combined_data_df['home_team_advantage'] = combined_data_df['is_team_1'] * home_advantage
+
+        # Gestione dei valori mancanti
         imputer = SimpleImputer(strategy='mean')
         combined_data_df_imputed = pd.DataFrame(imputer.fit_transform(combined_data_df),
                                                 columns=combined_data_df.columns)
 
+        # Normalizzazione dei dati
         scaler = StandardScaler()
         combined_data_df_scaled = pd.DataFrame(scaler.fit_transform(combined_data_df_imputed),
                                                columns=combined_data_df_imputed.columns)
 
+        # Mappatura dei risultati delle partite in valori binari (vittoria o sconfitta)
         outcome_map = {'3-0': 1, '3-1': 1, '3-2': 1, '2-3': 0, '1-3': 0, '0-3': 0}
-        y = pd.Series([outcome_map[result] for result in self.results], name='Match_Outcome')
-        y_team_2 = pd.Series([outcome_map[result] for result in team_2.results], name='Match_Outcome')
+        filtered_results = [result for result in self.results if result != '0-0']
+        filtered_results_team_2 = [result for result in team_2.results if result != '0-0']
+
+        y = pd.Series([outcome_map[result] for result in filtered_results], name='Match_Outcome')
+        y_team_2 = pd.Series([outcome_map[result] for result in filtered_results_team_2], name='Match_Outcome')
 
         combined_y = pd.concat([y, y_team_2], ignore_index=True)
-        combined_y = pd.concat([combined_y, combined_y], ignore_index=True)
-        combined_data_df_scaled = pd.concat([combined_data_df_scaled, combined_data_df_scaled], ignore_index=True)
 
+        # Cross-validation dinamica
         n_splits = get_dynamic_n_splits(combined_y)
-        rf = RandomForestClassifier(random_state=42)
-
         skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
-        scores = cross_val_score(rf, combined_data_df_scaled, combined_y, cv=skf, scoring='accuracy')
-        accuracy = np.mean(scores)
-        print(f"Mean accuracy with {n_splits}-fold cross-validation: {accuracy:.2f}")
 
-        rf.fit(combined_data_df_scaled, combined_y)
-        prediction = rf.predict(combined_data_df_scaled)
+        # Parametri per l'ottimizzazione
+        param_grid = {
+            'n_estimators': [100, 200, 300],
+            'max_depth': [None, 10, 20, 30],
+            'min_samples_split': [2, 5, 10],
+            'min_samples_leaf': [1, 2, 4]
+        }
+
+        # Modello Random Forest
+        rf = RandomForestClassifier(random_state=42)
+        grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=skf, scoring='accuracy', n_jobs=-1)
+        grid_search.fit(combined_data_df_scaled, combined_y)
+
+        # Modello migliore da GridSearch
+        best_rf = grid_search.best_estimator_
+
+        # Calcola l'accuratezza media del modello migliore
+        accuracy = np.mean(
+            cross_val_score(best_rf, combined_data_df_scaled, combined_y, cv=skf, scoring='accuracy'))
+
+        # Salva il miglior vantaggio se l'accuratezza migliora
+        if accuracy > best_accuracy:
+            best_accuracy = accuracy
+            best_advantage = home_advantage
+
+        print(f"Best home team advantage: {best_advantage} with accuracy: {best_accuracy:.2f}")
+
+        # Addestra il modello finale con il miglior vantaggio casalingo trovato
+        combined_data_df['home_team_advantage'] = combined_data_df['is_team_1'] * best_advantage
+        combined_data_df_imputed = pd.DataFrame(imputer.transform(combined_data_df),
+                                                columns=combined_data_df.columns)
+        combined_data_df_scaled = pd.DataFrame(scaler.transform(combined_data_df_imputed),
+                                               columns=combined_data_df_imputed.columns)
+
+        best_rf.fit(combined_data_df_scaled, combined_y)
+
+        # Previsione finale
+        prediction = best_rf.predict(combined_data_df_scaled)
         prediction_result = 'win' if prediction[0] == 1 else 'lose'
 
-        # Chiamata della funzione per stampare l'importanza delle feature
-        print_feature_importance(rf, combined_data_df_imputed.columns)
+        # Stampa l'importanza delle feature
+        print_feature_importance(best_rf, combined_data_df_imputed.columns)
 
-        return rf, prediction_result
+        return best_rf, prediction_result
+
 
 def print_feature_importance(model, feature_names):
     # Estrazione e visualizzazione dell'importanza delle feature
@@ -211,16 +270,6 @@ def print_feature_importance(model, feature_names):
     plt.tight_layout()
     plt.savefig("feature_importance.png")
     plt.show()
-
-    # Creazione del documento PDF
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Feature Importance Report", ln=True, align="C")
-
-    pdf.image("feature_importance.png", x=10, y=30, w=180)
-    pdf.output("Feature_Importance_Report.pdf")
-    print("Il documento PDF con l'importanza delle feature è stato creato con successo!")
 
 
 def convert_to_numeric(data):
@@ -245,8 +294,8 @@ def load_json(teams_file_path, players_file_path, results_file_path):
     for data in file_players:
         data['totals'] = convert_to_numeric(data['totals'])
         data['averages'] = convert_to_numeric(data['averages'])
-        for giornata in data['giornate']:
-            convert_to_numeric(giornata)
+        for matchday in data['giornate']:
+            convert_to_numeric(matchday)
         for team in teams:
             found_player = team.find_player_by_name(data['atleta'])
             if found_player:
@@ -278,8 +327,8 @@ if __name__ == "__main__":
                       "padova": "Sonepar Padova", "piacenza": "Gas Sales Bluenergy Piacenza",
                       "taranto": "Gioiella Prisma Taranto", "verona": "Rana Verona"}
 
-    team_1 = next(team for team in team_objects if team.name == team_names_map["monza"])
-    team_2 = next(team for team in team_objects if team.name == team_names_map["modena"])
+    matches = [{'perugia', 'grottazzolina'}, {'piacenza', 'trento'}, {'lube', 'modena'}, {'monza', 'verona'},
+               {'cisterna', 'taranto'}, {'padova', 'milano'}]
 
     modena_starters = ["Sanguinetti Giovanni", "Anzani Simone", "Davyskiba Vlad", "De Cecco Luciano", "Buchegger Paul",
                        "Rinaldi Tommaso", "Federici Filippo"]
@@ -287,25 +336,27 @@ if __name__ == "__main__":
                        "Michieletto Alessandro",
                        "Resende Gualberto Flavio", "Sbertoli Riccardo"]
     perugia_starters = ["Giannelli Simone", "Loser Agustin", "Ben Tara Wassim", "Russo Roberto", "Colaci Massimo",
-                        "Ishikawa Yuki", "Semeniuk Kamil"]
+                        "Plotnytskyi Oleh", "Semeniuk Kamil"]
     cisterna_starters = ["Baranowicz Michele", "Bayram Efe", "Faure Theo", "Nedeljkovic Aleksandar", "Pace Domenico",
-                         "Ramon Jordi", "Mazzone Daniele"]
-    grottazzolina_starters = ["Antonov Oleg", "Demyanenko Danny", "Marchisio Andrea", "Mattei Andrea", "Tatarov Georgi",
-                              "Zhukouski Tsimafei", "Marchiani Manuele"]
+                         "Ramon Jordi", "Diamantini Enrico"]
+    grottazzolina_starters = ["Antonov Oleg", "Demyanenko Danny", "Marchisio Andrea", "Comparoni Francesco",
+                              "Tatarov Georgi",
+                              "Zhukouski Tsimafei", "Cvanciger Gabrijel"]
     lube_starters = ["Balaso Fabio", "Boninfante Mattia", "Bottolo Mattia", "Chinenyeze Barthelemy",
-                     "Gargiulo Giovanni Maria", "Lagumdzija Adis", "Loeppky Eric"]
-    milano_starters = ["Caneschi Edoardo", "Catania Damiano", "Kaziyski Matey", "Louati Yacine", "Porro Paolo",
-                       "Reggers Ferre", "Schnitzer Jordan"]
+                     "Nikolov Aleksandar", "Lagumdzija Adis", "Podrascanin Marko"]
+    milano_starters = ["Caneschi Edoardo", "Staforini Matteo", "Gardini Davide", "Louati Yacine", "Porro Paolo",
+                       "Reggers Ferre", "Piano Matteo"]
     monza_starters = ["Beretta Thomas", "Di Martino Gabriele", "Gaggini Marco", "Kreling Fernando", "Marttila Luka",
-                      "Rohrs Erik", "Szwarc Arthur"]
+                      "Zaytsev Ivan", "Szwarc Arthur"]
     padova_starters = ["Crosato Federico", "Diez Benjamin", "Falaschi Marco", "Masulovic Veljko", "Plak Fabian",
                        "Porro Luca", "Sedlacek Marko"]
-    piacenza_starters = ["Scanferla Leonardo", "Brizard Antoine", "Galassi Gianluca", "Kovacevic Uros", "Maar Stephen",
+    piacenza_starters = ["Scanferla Leonardo", "Brizard Antoine", "Ricci Fabio", "Mandiraci Ramazan Efe",
+                         "Maar Stephen",
                          "Simon Robertlandy", "Romanò Yuri"]
     taranto_starters = ["Alonso Roamy", "D'Heer Wout", "Lanza Filippo", "Hofer Brodie", "Rizzo Marco", "Zimmermann Jan",
                         "Gironi Fabrizio"]
     verona_starters = ["Dzavoronok Donovan", "Abaev Konstantin", "D'Amico Francesco", "Vitelli Marco", "Keita Noumory",
-                       "Sani Francesco", "Cortesia Lorenzo"]
+                       "Mozic Rok", "Cortesia Lorenzo"]
 
     team_starters = {"Itas Trentino": trento_starters, "Valsa Group Modena": modena_starters,
                      "Sir Susa Vim Perugia": perugia_starters, "Cisterna Volley": cisterna_starters,
@@ -314,11 +365,17 @@ if __name__ == "__main__":
                      "Sonepar Padova": padova_starters, "Gas Sales Bluenergy Piacenza": piacenza_starters,
                      "Gioiella Prisma Taranto": taranto_starters, "Rana Verona": verona_starters}
 
-    team_1.select_starters(team_starters[team_1.name])
-    team_2.select_starters(team_starters[team_2.name])
+    for match in matches:
+        match_list = list(match)
+        team_1 = next(team for team in team_objects if team.name == team_names_map[match_list[0]])
+        team_2 = next(team for team in team_objects if team.name == team_names_map[match_list[1]])
 
-    # Trains the model and predicts the winner of the match between team_1 and team_2
-    model, prediction_result = team_1.train_and_predict_match_winner_symmetric(team_2)
+        team_1.select_starters(team_starters[team_1.name])
+        team_2.select_starters(team_starters[team_2.name])
 
-    # Print the prediction
-    print(f"Prediction for the match between {team_1.name} and {team_2.name}: {team_1.name} will {prediction_result}")
+        # Trains the model and predicts the winner of the match between team_1 and team_2
+        model, prediction_result = team_1.train_and_predict_match_winner_symmetric(team_2)
+
+        # Print the prediction
+        print(
+            f"Prediction for the match between {team_1.name} and {team_2.name}: {team_1.name} will {prediction_result}")
