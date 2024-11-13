@@ -4,51 +4,33 @@
         "results": [
             {
                 "team": "Sir Susa Vim Perugia",
-                "result": "3-0"
-            },
-            {
-                "team": "Rana Verona",
-                "result": "0-3"
+                "result": "3-0",
+                "opponent": "Rana Verona"
             },
             {
                 "team": "Gas Sales Bluenergy Piacenza",
-                "result": "3-1"
-            },
-            {
-                "team": "Valsa Group Modena",
-                "result": "1-3"
+                "result": "3-1",
+                "opponent": "Valsa Group Modena"
             },
             {
                 "team": "Cucine Lube Civitanova",
-                "result": "3-1"
-            },
-            {
-                "team": "Sonepar Padova",
-                "result": "1-3"
+                "result": "3-1",
+                "opponent": "Sonepar Padova"
             },
             {
                 "team": "Cisterna Volley",
-                "result": "1-3"
-            },
-            {
-                "team": "Itas Trentino",
-                "result": "3-1"
+                "result": "1-3",
+                "opponent": "Itas Trentino"
             },
             {
                 "team": "Gioiella Prisma Taranto",
-                "result": "3-0"
-            },
-            {
-                "team": "Allianz Milano",
-                "result": "0-3"
+                "result": "3-0",
+                "opponent": "Allianz Milano"
             },
             {
                 "team": "Yuasa Battery Grottazzolina",
-                "result": "2-3"
-            },
-            {
-                "team": "Mint Vero Volley Monza",
-                "result": "3-2"
+                "result": "2-3",
+                "opponent": "Mint Vero Volley Monza"
             }
         ]
     },
@@ -57,51 +39,33 @@
         "results": [
             {
                 "team": "Itas Trentino",
-                "result": "3-0"
-            },
-            {
-                "team": "Gioiella Prisma Taranto",
-                "result": "0-3"
+                "result": "3-0",
+                "opponent": "Gioiella Prisma Taranto"
             },
             {
                 "team": "Mint Vero Volley Monza",
-                "result": "0-3"
-            },
-            {
-                "team": "Gas Sales Bluenergy Piacenza",
-                "result": "3-0"
+                "result": "0-3",
+                "opponent": "Gas Sales Bluenergy Piacenza"
             },
             {
                 "team": "Allianz Milano",
-                "result": "3-0"
-            },
-            {
-                "team": "Cucine Lube Civitanova",
-                "result": "0-3"
+                "result": "3-0",
+                "opponent": "Cucine Lube Civitanova"
             },
             {
                 "team": "Rana Verona",
-                "result": "3-2"
-            },
-            {
-                "team": "Cisterna Volley",
-                "result": "2-3"
+                "result": "3-2",
+                "opponent": "Cisterna Volley"
             },
             {
                 "team": "Valsa Group Modena",
-                "result": "3-0"
-            },
-            {
-                "team": "Yuasa Battery Grottazzolina",
-                "result": "0-3"
+                "result": "3-0",
+                "opponent": "Yuasa Battery Grottazzolina"
             },
             {
                 "team": "Sonepar Padova",
-                "result": "2-3"
-            },
-            {
-                "team": "Sir Susa Vim Perugia",
-                "result": "3-2"
+                "result": "2-3",
+                "opponent": "Sir Susa Vim Perugia"
             }
         ]
     },
@@ -110,51 +74,33 @@
         "results": [
             {
                 "team": "Cucine Lube Civitanova",
-                "result": "3-0"
-            },
-            {
-                "team": "Mint Vero Volley Monza",
-                "result": "0-3"
+                "result": "3-0",
+                "opponent": "Mint Vero Volley Monza"
             },
             {
                 "team": "Allianz Milano",
-                "result": "1-3"
-            },
-            {
-                "team": "Itas Trentino",
-                "result": "3-1"
+                "result": "1-3",
+                "opponent": "Itas Trentino"
             },
             {
                 "team": "Valsa Group Modena",
-                "result": "0-3"
-            },
-            {
-                "team": "Sir Susa Vim Perugia",
-                "result": "3-0"
+                "result": "0-3",
+                "opponent": "Sir Susa Vim Perugia"
             },
             {
                 "team": "Cisterna Volley",
-                "result": "1-3"
-            },
-            {
-                "team": "Gas Sales Bluenergy Piacenza",
-                "result": "3-1"
+                "result": "1-3",
+                "opponent": "Gas Sales Bluenergy Piacenza"
             },
             {
                 "team": "Gioiella Prisma Taranto",
-                "result": "1-3"
-            },
-            {
-                "team": "Sonepar Padova",
-                "result": "3-1"
+                "result": "1-3",
+                "opponent": "Sonepar Padova"
             },
             {
                 "team": "Yuasa Battery Grottazzolina",
-                "result": "0-3"
-            },
-            {
-                "team": "Rana Verona",
-                "result": "3-0"
+                "result": "0-3",
+                "opponent": "Rana Verona"
             }
         ]
     },
@@ -163,51 +109,33 @@
         "results": [
             {
                 "team": "Itas Trentino",
-                "result": "3-1"
-            },
-            {
-                "team": "Valsa Group Modena",
-                "result": "1-3"
+                "result": "3-1",
+                "opponent": "Valsa Group Modena"
             },
             {
                 "team": "Sir Susa Vim Perugia",
-                "result": "3-1"
-            },
-            {
-                "team": "Cisterna Volley",
-                "result": "1-3"
+                "result": "3-1",
+                "opponent": "Cisterna Volley"
             },
             {
                 "team": "Gas Sales Bluenergy Piacenza",
-                "result": "3-1"
-            },
-            {
-                "team": "Gioiella Prisma Taranto",
-                "result": "1-3"
+                "result": "3-1",
+                "opponent": "Gioiella Prisma Taranto"
             },
             {
                 "team": "Mint Vero Volley Monza",
-                "result": "1-3"
-            },
-            {
-                "team": "Allianz Milano",
-                "result": "3-1"
+                "result": "1-3",
+                "opponent": "Allianz Milano"
             },
             {
                 "team": "Rana Verona",
-                "result": "3-1"
-            },
-            {
-                "team": "Cucine Lube Civitanova",
-                "result": "1-3"
+                "result": "3-1",
+                "opponent": "Cucine Lube Civitanova"
             },
             {
                 "team": "Yuasa Battery Grottazzolina",
-                "result": "2-3"
-            },
-            {
-                "team": "Sonepar Padova",
-                "result": "3-2"
+                "result": "2-3",
+                "opponent": "Sonepar Padova"
             }
         ]
     },
@@ -216,51 +144,33 @@
         "results": [
             {
                 "team": "Itas Trentino",
-                "result": "1-3"
-            },
-            {
-                "team": "Sir Susa Vim Perugia",
-                "result": "3-1"
+                "result": "1-3",
+                "opponent": "Sir Susa Vim Perugia"
             },
             {
                 "team": "Cucine Lube Civitanova",
-                "result": "3-0"
-            },
-            {
-                "team": "Cisterna Volley",
-                "result": "0-3"
+                "result": "3-0",
+                "opponent": "Cisterna Volley"
             },
             {
                 "team": "Allianz Milano",
-                "result": "1-3"
-            },
-            {
-                "team": "Rana Verona",
-                "result": "3-1"
+                "result": "1-3",
+                "opponent": "Rana Verona"
             },
             {
                 "team": "Valsa Group Modena",
-                "result": "3-0"
-            },
-            {
-                "team": "Mint Vero Volley Monza",
-                "result": "0-3"
+                "result": "3-0",
+                "opponent": "Mint Vero Volley Monza"
             },
             {
                 "team": "Sonepar Padova",
-                "result": "2-3"
-            },
-            {
-                "team": "Gas Sales Bluenergy Piacenza",
-                "result": "3-2"
+                "result": "2-3",
+                "opponent": "Gas Sales Bluenergy Piacenza"
             },
             {
                 "team": "Gioiella Prisma Taranto",
-                "result": "3-1"
-            },
-            {
-                "team": "Yuasa Battery Grottazzolina",
-                "result": "1-3"
+                "result": "3-1",
+                "opponent": "Yuasa Battery Grottazzolina"
             }
         ]
     },
@@ -269,51 +179,33 @@
         "results": [
             {
                 "team": "Sir Susa Vim Perugia",
-                "result": "3-2"
-            },
-            {
-                "team": "Cucine Lube Civitanova",
-                "result": "2-3"
+                "result": "3-2",
+                "opponent": "Cucine Lube Civitanova"
             },
             {
                 "team": "Gas Sales Bluenergy Piacenza",
-                "result": "3-0"
-            },
-            {
-                "team": "Allianz Milano",
-                "result": "0-3"
+                "result": "3-0",
+                "opponent": "Allianz Milano"
             },
             {
                 "team": "Mint Vero Volley Monza",
-                "result": "3-2"
-            },
-            {
-                "team": "Gioiella Prisma Taranto",
-                "result": "2-3"
+                "result": "3-2",
+                "opponent": "Gioiella Prisma Taranto"
             },
             {
                 "team": "Rana Verona",
-                "result": "2-3"
-            },
-            {
-                "team": "Valsa Group Modena",
-                "result": "3-2"
+                "result": "2-3",
+                "opponent": "Valsa Group Modena"
             },
             {
                 "team": "Cisterna Volley",
-                "result": "3-1"
-            },
-            {
-                "team": "Sonepar Padova",
-                "result": "1-3"
+                "result": "3-1",
+                "opponent": "Sonepar Padova"
             },
             {
                 "team": "Yuasa Battery Grottazzolina",
-                "result": "1-3"
-            },
-            {
-                "team": "Itas Trentino",
-                "result": "3-1"
+                "result": "1-3",
+                "opponent": "Itas Trentino"
             }
         ]
     },
@@ -322,51 +214,33 @@
         "results": [
             {
                 "team": "Itas Trentino",
-                "result": "3-1"
-            },
-            {
-                "team": "Rana Verona",
-                "result": "1-3"
+                "result": "3-1",
+                "opponent": "Rana Verona"
             },
             {
                 "team": "Cucine Lube Civitanova",
-                "result": "3-0"
-            },
-            {
-                "team": "Gas Sales Bluenergy Piacenza",
-                "result": "0-3"
+                "result": "3-0",
+                "opponent": "Gas Sales Bluenergy Piacenza"
             },
             {
                 "team": "Allianz Milano",
-                "result": "3-1"
-            },
-            {
-                "team": "Yuasa Battery Grottazzolina",
-                "result": "1-3"
+                "result": "3-1",
+                "opponent": "Yuasa Battery Grottazzolina"
             },
             {
                 "team": "Valsa Group Modena",
-                "result": "2-3"
-            },
-            {
-                "team": "Cisterna Volley",
-                "result": "3-2"
+                "result": "2-3",
+                "opponent": "Cisterna Volley"
             },
             {
                 "team": "Sonepar Padova",
-                "result": "3-0"
-            },
-            {
-                "team": "Mint Vero Volley Monza",
-                "result": "0-3"
+                "result": "3-0",
+                "opponent": "Mint Vero Volley Monza"
             },
             {
                 "team": "Gioiella Prisma Taranto",
-                "result": "0-3"
-            },
-            {
-                "team": "Sir Susa Vim Perugia",
-                "result": "3-0"
+                "result": "0-3",
+                "opponent": "Sir Susa Vim Perugia"
             }
         ]
     },
@@ -375,51 +249,33 @@
         "results": [
             {
                 "team": "Gas Sales Bluenergy Piacenza",
-                "result": "0-0"
-            },
-            {
-                "team": "Yuasa Battery Grottazzolina",
-                "result": "0-0"
+                "result": "0-0",
+                "opponent": "Yuasa Battery Grottazzolina"
             },
             {
                 "team": "Cucine Lube Civitanova",
-                "result": "0-0"
-            },
-            {
-                "team": "Itas Trentino",
-                "result": "0-0"
+                "result": "0-0",
+                "opponent": "Itas Trentino"
             },
             {
                 "team": "Mint Vero Volley Monza",
-                "result": "0-0"
-            },
-            {
-                "team": "Sir Susa Vim Perugia",
-                "result": "0-0"
+                "result": "0-0",
+                "opponent": "Sir Susa Vim Perugia"
             },
             {
                 "team": "Allianz Milano",
-                "result": "3-1"
-            },
-            {
-                "team": "Cisterna Volley",
-                "result": "1-3"
+                "result": "3-1",
+                "opponent": "Cisterna Volley"
             },
             {
                 "team": "Sonepar Padova",
-                "result": "0-0"
-            },
-            {
-                "team": "Rana Verona",
-                "result": "0-0"
+                "result": "0-0",
+                "opponent": "Rana Verona"
             },
             {
                 "team": "Gioiella Prisma Taranto",
-                "result": "0-0"
-            },
-            {
-                "team": "Valsa Group Modena",
-                "result": "0-0"
+                "result": "0-0",
+                "opponent": "Valsa Group Modena"
             }
         ]
     }

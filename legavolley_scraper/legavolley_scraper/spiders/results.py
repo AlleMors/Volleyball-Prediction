@@ -35,14 +35,16 @@ class ResultsSpider(scrapy.Spider):
 
     def parse_giornata(self, response):
         results = []
-        for i in range(4, 16):
+        for i in range(4, 16, 2):
             team = response.xpath(
                 f'/html/body/div[7]/div[2]/div/div/table/tbody/tr[2]/td[1]/table/tbody/tr[{i}]/td[1]/text()').get()
             res = response.xpath(
-                f'/html/body/div[7]/div[2]/div/div/table/tbody/tr[2]/td[1]/table/tbody/tr[{i}]/td[2]/text()').get() if i % 2 == 0 else None
+                f'/html/body/div[7]/div[2]/div/div/table/tbody/tr[2]/td[1]/table/tbody/tr[{i}]/td[2]/text()').get()
+            opponent = response.xpath(
+                f'/html/body/div[7]/div[2]/div/div/table/tbody/tr[2]/td[1]/table/tbody/tr[{i + 1}]/td[1]/text()').get()
 
             if team:
-                results.append({'team': team.strip(), 'result': res.strip() if res else None})
+                results.append({'team': team.strip(), 'result': res.strip(), 'opponent':opponent.strip() if res else None})
 
         giornata = response.xpath('/html/body/div[7]/div[2]/div/div/form/div/div[4]/div[2]/span/text()').get()
 
@@ -76,4 +78,3 @@ class ResultsSpider(scrapy.Spider):
                     parts = prev_result.split('-')
                     if len(parts) == 2:
                         result["result"] = f"{parts[1].strip()}-{parts[0].strip()}"
-
