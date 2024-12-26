@@ -92,3 +92,7 @@ DOWNLOADER_MIDDLEWARES = {
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
+LOG_LEVEL = 'DEBUG'  # Imposta il livello di log su DEBUG per vedere tutti i messaggi
+LOG_FORMAT = '%(asctime)s [%(levelname)s] %(message)s'  # Imposta il formato del log
+LOG_FILE = 'scrapy_log.txt'  # (opzionale) Salva il log in un file
+
